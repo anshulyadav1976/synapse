@@ -1,0 +1,35 @@
+[
+  {
+    "conversation_id": "synthetic-conversation-001",
+    "id": "synthetic-conversation-001",
+    "create_time": 1726272000,
+    "title": "Planning a tiny community garden",
+    "mapping": {
+      "root": {"id": "root", "message": null},
+      "user": {
+        "id": "user",
+        "message": {
+          "author": {"role": "user", "name": null},
+          "create_time": 1726272001,
+          "content": {"content_type": "text", "parts": ["I want to grow basil and tomatoes in a small shared garden."]}
+        }
+      },
+      "answer-a": {
+        "id": "answer-a",
+        "message": {
+          "author": {"role": "assistant", "name": null},
+          "create_time": 1726272002,
+          "content": {"content_type": "text", "parts": ["Start with two sunny raised beds."]}
+        }
+      },
+      "answer-b": {
+        "id": "answer-b",
+        "message": {
+          "author": {"role": "assistant", "name": null},
+          "create_time": 1726272003,
+          "content": {"content_type": "text", "parts": ["A regenerated answer also recommends compost."]}
+        }
+      }
+    }
+  }
+]

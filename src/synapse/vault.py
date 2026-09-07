@@ -45,3 +45,11 @@ class Vault:
         pages = sum(1 for path in self.wiki_path.glob("*.md") if path.is_file())
         return {"items": items, "unbuilt": unbuilt, "pages": pages, "sources": sources}
 
+    def search(self, query: str, limit: int = 10) -> list[dict[str, str]]:
+        if not self.db_path.exists():
+            raise FileNotFoundError(
+                f"No Synapse vault found at {self.path}. Run: synapse init {self.path}"
+            )
+        from .index import search
+
+        return search(self.db_path, query, limit)

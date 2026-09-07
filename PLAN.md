@@ -37,19 +37,42 @@ Sources: none
 
 ## Phase 1 — Ingest (the free path)
 
-- [ ] `Item` / `Turn` dataclasses exactly as in `DESIGN.md` §5
-- [ ] Adapter registry + `@adapter("name")` decorator + detection dispatch + `--format` override
-- [ ] Raw writer: `raw/<source>/<YYYY-MM>/<id>.md`, write-once, skip if present, index in FTS5
-- [ ] **`chatgpt` adapter** — all five input shapes: folder, zip of folder, single shard, legacy `conversations.json`, `chat.html` (slice `var jsonData =`). Manifest-driven discovery. Branching-tree flatten. See `DESIGN.md` §6
-- [ ] **`file` adapter** — any text file, one item
-- [ ] **`dir` adapter** — walk a folder, one item per text file, skipping binaries and dotfiles
-- [ ] **Universal fallback** — an input no adapter claims still becomes one item. Never reject
-- [ ] Document chunking on headings with `parent` set
-- [ ] Trivia filter: skip conversations with < 200 chars of owner text (`--min-chars`)
-- [ ] `synapse search "<query>"` — CLI FTS search, so the free path is *useful* before any LLM exists
-- [ ] `synapse reindex` — rebuild the whole index from files
+- [x] `Item` / `Turn` dataclasses exactly as in `DESIGN.md` §5
+- [x] Adapter registry + `@adapter("name")` decorator + detection dispatch + `--format` override
+- [x] Raw writer: `raw/<source>/<YYYY-MM>/<id>.md`, write-once, skip if present, index in FTS5
+- [x] **`chatgpt` adapter** — all five input shapes: folder, zip of folder, single shard, legacy `conversations.json`, `chat.html` (slice `var jsonData =`). Manifest-driven discovery. Branching-tree flatten. See `DESIGN.md` §6
+- [x] **`file` adapter** — any text file, one item
+- [x] **`dir` adapter** — walk a folder, one item per text file, skipping binaries and dotfiles
+- [x] **Universal fallback** — an input no adapter claims still becomes one item. Never reject
+- [x] Document chunking on headings with `parent` set
+- [x] Trivia filter: skip conversations with < 200 chars of owner text (`--min-chars`)
+- [x] `synapse search "<query>"` — CLI FTS search, so the free path is *useful* before any LLM exists
+- [x] `synapse reindex` — rebuild the whole index from files
 
-**Checkpoint 1:** the owner runs ingest on their real ~92 MB / 3,138-conversation export. Record: conversations seen, items added, items skipped, wall time, and a `synapse search` hit that returns something sensible. **Zero API calls made.** This is the moment the project is already worth using.
+**Checkpoint 1:** Passed on 2026-09-07 against the owner's real 32-shard export. Personal search content and its source identifier are redacted and were never copied into the repository.
+
+```text
+Format: chatgpt
+Conversations seen: 3138
+Items added: 2044
+Items skipped: 1094
+  Already present: 0
+  Below --min-chars: 1094
+Wall time: 9.30s
+API calls: 0
+
+Search query: LangGraph
+Results returned: 1
+Query present in indexed hit: yes
+Title, snippet, and source identifier: redacted (personal data)
+
+Reindexed 2044 raw item(s) and 0 wiki page(s)
+Items: 2044
+Unbuilt: 2044
+Pages: 0
+Sources: chatgpt=2044
+Post-reindex results: 1
+```
 
 ---
 
