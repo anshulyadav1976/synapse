@@ -1,5 +1,6 @@
 """Free ingest path: adapter to immutable Markdown to FTS5."""
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -42,6 +43,7 @@ def ingest(
     format_name: str | None = None,
     min_chars: int = 200,
     owner: str = "",
+    progress: Callable[[IngestResult], None] | None = None,
 ) -> IngestResult:
     if not vault.db_path.exists():
         raise FileNotFoundError(f"No vault at {vault.path}. Run: synapse init {vault.path}")
@@ -53,6 +55,8 @@ def ingest(
             result.seen += 1
             if item.turns is not None and owner_chars(item, owner) < min_chars:
                 result.filtered += 1
+                if progress:
+                    progress(result)
                 continue
             relative = Path("raw") / item.source / _month(item.ts) / f"{filename(item.id)}.md"
             destination = vault.path / relative
@@ -60,10 +64,14 @@ def ingest(
                 existing, body = parse(destination)
                 index_item(connection, existing, relative.as_posix(), body)
                 result.skipped += 1
+                if progress:
+                    progress(result)
                 continue
             body = render(item)
             destination.parent.mkdir(parents=True, exist_ok=True)
             destination.write_text(body, encoding="utf-8")
             index_item(connection, item, relative.as_posix(), body)
             result.added += 1
+            if progress:
+                progress(result)
     return result

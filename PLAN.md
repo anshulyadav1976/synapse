@@ -169,15 +169,40 @@ Answer and page identifiers: redacted (personal data)
 
 ## Phase 4 — Dashboard
 
-- [ ] stdlib `http.server`, **bound to 127.0.0.1 only**
-- [ ] REST: `/api/search`, `/api/page`, `/api/graph`, `/api/source`, `/api/status`, `/api/ingest`, `/api/build`
-- [ ] One HTML file: search, page reader with clickable `## Sources` chips, force-layout SVG graph, raw source viewer
-- [ ] Page editing writes the markdown file and reindexes just that file
-- [ ] Ingest and build controls with live progress
-- [ ] `synapse serve --demo` loads the bundled sample vault — **no API key, no import**
-- [ ] Build the sample vault (synthetic, ~20 interlinked pages) and commit it
+- [x] stdlib `http.server`, **bound to 127.0.0.1 only**
+- [x] REST: `/api/search`, `/api/page`, `/api/graph`, `/api/source`, `/api/status`, `/api/ingest`, `/api/build`
+- [x] One HTML file: search, page reader with clickable `## Sources` chips, force-layout SVG graph, raw source viewer
+- [x] Page editing writes the markdown file and reindexes just that file
+- [x] Ingest and build controls with live progress
+- [x] `synapse serve --demo` loads the bundled sample vault — **no API key, no import**
+- [x] Build the sample vault (synthetic, ~20 interlinked pages) and commit it
 
-**Checkpoint 4:** `uvx synapse serve --demo` on a clean machine shows a populated graph in under ten seconds with no configuration. This is the ten-second experience every visitor gets; it must be flawless.
+**Checkpoint 4:** Passed on 2026-09-07 from an isolated, no-cache `uvx` environment. Before PyPI publication the local source package was selected explicitly; the installed command is still `synapse serve --demo`.
+
+```text
+Command: uvx --isolated --no-cache --from . synapse serve --demo
+Ready in: 1.31s
+Items: 5
+Pages: 20
+Graph nodes: 20
+Graph edges: 61
+API key required: no
+Import required: no
+```
+
+Headless Chromium workflow verification at 1440×900:
+
+```text
+Dashboard ready: 878ms
+Graph nodes: 20
+Graph edges: at least 20
+Search results for synthetic query: 5
+Opened page: 2026 Goals
+Raw source opened: yes
+Page edit saved and reindexed: yes
+Dry estimate: 0 items · ~0 input tokens · $0.0000
+Browser console errors: 0
+```
 
 ---
 

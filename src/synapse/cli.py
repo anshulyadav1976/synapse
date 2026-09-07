@@ -10,6 +10,7 @@ from .index import reindex
 from .ingest import ingest
 from .llm import OpenAICompatible
 from .query import ask
+from .server import demo_vault, serve
 from .vault import Vault
 
 
@@ -56,6 +57,12 @@ def parser() -> argparse.ArgumentParser:
     ask_command.add_argument("question")
     ask_command.add_argument("--vault", default="./synapse-vault")
     ask_command.add_argument("--limit", type=int, default=5)
+
+    serve_command = commands.add_parser("serve", help="open the local dashboard")
+    serve_command.add_argument("--vault", default="./synapse-vault")
+    serve_command.add_argument("--demo", action="store_true")
+    serve_command.add_argument("--port", type=int, default=8765)
+    serve_command.add_argument("--no-open", action="store_true")
     return root
 
 
@@ -123,6 +130,14 @@ def main(argv: list[str] | None = None) -> int:
         print("\nRetrieved pages: " + ", ".join(f"[[{slug}]]" for slug in result.pages))
         cost = actual_cost(config, client.usage.input_tokens, client.usage.output_tokens)
         print(f"Actual cost: ${cost:.4f}")
+        return 0
+    if args.command == "serve":
+        temporary = None
+        if args.demo:
+            vault, temporary = demo_vault()
+        serve(vault, args.port, not args.no_open)
+        if temporary:
+            temporary.cleanup()
         return 0
 
     config = vault.config()

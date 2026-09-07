@@ -204,6 +204,7 @@ def build(
     complete: Callable[[str, str], str],
     limit: int | None = None,
     oldest: bool = False,
+    progress: Callable[[BuildResult], None] | None = None,
 ) -> BuildResult:
     result = BuildResult()
     for row in _unbuilt(vault, limit, oldest):
@@ -225,6 +226,8 @@ def build(
             )
         record_built(vault, row["path"])
         result.items += 1
+        if progress:
+            progress(result)
     return result
 
 

@@ -18,10 +18,12 @@ synapse = "synapse.cli:main"
 [tool.setuptools.packages.find]
 where = ["src"]
 
+[tool.setuptools.package-data]
+synapse = ["dashboard.html", "demo/wiki/*.md", "demo/raw/demo/*/*.md"]
+
 [tool.pytest.ini_options]
 pythonpath = ["src"]
 
 [tool.ruff]
 line-length = 100
 target-version = "py311"
-
