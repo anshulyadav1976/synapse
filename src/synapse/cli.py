@@ -1,12 +1,15 @@
 """Command-line entry point."""
 
 import argparse
+import json
 import time
 
 from .build import actual_cost, build, estimate
+from .graph import graph_json, neighbors
 from .index import reindex
 from .ingest import ingest
 from .llm import OpenAICompatible
+from .query import ask
 from .vault import Vault
 
 
@@ -40,6 +43,19 @@ def parser() -> argparse.ArgumentParser:
     build_command.add_argument("--dry-run", action="store_true")
     build_command.add_argument("--oldest", action="store_true")
     build_command.add_argument("--yes", action="store_true", help="confirm a large estimated spend")
+
+    graph_command = commands.add_parser("graph", help="export the wiki graph")
+    graph_command.add_argument("--vault", default="./synapse-vault")
+    graph_command.add_argument("--json", action="store_true", required=True)
+
+    neighbor_command = commands.add_parser("neighbors", help="list a page's graph neighbors")
+    neighbor_command.add_argument("slug")
+    neighbor_command.add_argument("--vault", default="./synapse-vault")
+
+    ask_command = commands.add_parser("ask", help="answer from retrieved wiki pages")
+    ask_command.add_argument("question")
+    ask_command.add_argument("--vault", default="./synapse-vault")
+    ask_command.add_argument("--limit", type=int, default=5)
     return root
 
 
@@ -91,6 +107,22 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "reindex":
         raw_count, page_count = reindex(vault.path)
         print(f"Reindexed {raw_count} raw item(s) and {page_count} wiki page(s)")
+        return 0
+    if args.command == "graph":
+        print(json.dumps(graph_json(vault), ensure_ascii=False, indent=2))
+        return 0
+    if args.command == "neighbors":
+        for neighbor in neighbors(vault, args.slug):
+            print(f"{neighbor['slug']}\t{neighbor['direction']}\t{neighbor['phrase']}")
+        return 0
+    if args.command == "ask":
+        config = vault.config()
+        client = OpenAICompatible(config.base_url, config.api_key, config.model)
+        result = ask(vault, args.question, client.complete, args.limit)
+        print(result.answer)
+        print("\nRetrieved pages: " + ", ".join(f"[[{slug}]]" for slug in result.pages))
+        cost = actual_cost(config, client.usage.input_tokens, client.usage.output_tokens)
+        print(f"Actual cost: ${cost:.4f}")
         return 0
 
     config = vault.config()

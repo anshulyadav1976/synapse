@@ -143,12 +143,27 @@ One generated page, with personal content redacted while preserving its measured
 
 ## Phase 3 — Graph and query
 
-- [ ] `graph.py`: neighbours (one SELECT), n-hop via **recursive CTE**, subgraph around a node, orphans, degree ranking
-- [ ] `{nodes, edges}` JSON export; dangling links dropped
-- [ ] `synapse graph --json` and `synapse neighbors <slug>`
-- [ ] `synapse ask "<question>"` — FTS retrieve, read the top pages, one LLM call to answer with page citations
+- [x] `graph.py`: neighbours (one SELECT), n-hop via **recursive CTE**, subgraph around a node, orphans, degree ranking
+- [x] `{nodes, edges}` JSON export; dangling links dropped
+- [x] `synapse graph --json` and `synapse neighbors <slug>`
+- [x] `synapse ask "<question>"` — FTS retrieve, read the top pages, one LLM call to answer with page citations
 
-**Checkpoint 3:** a recursive-CTE 2-hop query on the real vault returns the right pages, and `synapse ask` answers a question about the owner's own history citing pages that actually contain the fact.
+**Checkpoint 3:** Passed on 2026-09-07 against the real vault. The page identifiers, question topic, and answer are redacted as personal data.
+
+```text
+Root page: redacted (personal data)
+Recursive CTE depth counts: {0: 1, 1: 1, 2: 5}
+Existing wiki pages in result: 7
+Recursive CTE matches independent breadth-first traversal: True
+
+Question: [redacted real wiki topic]
+Answer characters: 1582
+Unique page citations: 4
+Citations resolving to retrieved pages: 4
+Cited pages with direct lexical evidence: 4/4
+Actual cost: $0.0004
+Answer and page identifiers: redacted (personal data)
+```
 
 ---
 
