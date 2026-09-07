@@ -2,12 +2,15 @@
 
 from pathlib import Path
 
+from .config import Config, load
 from .db import connect, initialize
 
 DEFAULT_CONFIG = """# Synapse vault configuration
 owner = ""
 base_url = "https://api.openai.com/v1"
 model = "gpt-4o-mini"
+input_cost_per_million = 0.15
+output_cost_per_million = 0.60
 """
 
 
@@ -42,7 +45,11 @@ class Vault:
             unbuilt = connection.execute(
                 "SELECT count(*) FROM items WHERE built_at IS NULL"
             ).fetchone()[0]
-        pages = sum(1 for path in self.wiki_path.glob("*.md") if path.is_file())
+        pages = sum(
+            1
+            for path in self.wiki_path.glob("*.md")
+            if path.is_file() and not path.name.startswith(".")
+        )
         return {"items": items, "unbuilt": unbuilt, "pages": pages, "sources": sources}
 
     def search(self, query: str, limit: int = 10) -> list[dict[str, str]]:
@@ -53,3 +60,6 @@ class Vault:
         from .index import search
 
         return search(self.db_path, query, limit)
+
+    def config(self) -> Config:
+        return load(self.config_path)

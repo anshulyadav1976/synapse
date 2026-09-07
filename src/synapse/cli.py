@@ -3,8 +3,10 @@
 import argparse
 import time
 
+from .build import actual_cost, build, estimate
 from .index import reindex
 from .ingest import ingest
+from .llm import OpenAICompatible
 from .vault import Vault
 
 
@@ -31,6 +33,13 @@ def parser() -> argparse.ArgumentParser:
 
     rebuild = commands.add_parser("reindex", help="rebuild SQLite from Markdown")
     rebuild.add_argument("--vault", default="./synapse-vault")
+
+    build_command = commands.add_parser("build", help="turn unbuilt sources into wiki pages")
+    build_command.add_argument("--vault", default="./synapse-vault")
+    build_command.add_argument("--limit", type=int)
+    build_command.add_argument("--dry-run", action="store_true")
+    build_command.add_argument("--oldest", action="store_true")
+    build_command.add_argument("--yes", action="store_true", help="confirm a large estimated spend")
     return root
 
 
@@ -55,7 +64,13 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     if args.command == "ingest":
         started = time.perf_counter()
-        result = ingest(vault, args.input, args.format_name, args.min_chars)
+        result = ingest(
+            vault,
+            args.input,
+            args.format_name,
+            args.min_chars,
+            vault.config().owner,
+        )
         label = "Conversations" if result.format == "chatgpt" else "Items"
         print(f"Format: {result.format}")
         print(f"{label} seen: {result.seen}")
@@ -73,8 +88,40 @@ def main(argv: list[str] | None = None) -> int:
             print(f"  {result['snippet']}")
         print(f"{len(results)} result(s)")
         return 0
-    raw_count, page_count = reindex(vault.path)
-    print(f"Reindexed {raw_count} raw item(s) and {page_count} wiki page(s)")
+    if args.command == "reindex":
+        raw_count, page_count = reindex(vault.path)
+        print(f"Reindexed {raw_count} raw item(s) and {page_count} wiki page(s)")
+        return 0
+
+    config = vault.config()
+    quote = estimate(vault, config, args.limit, args.oldest)
+    print(f"Model: {config.model}")
+    print(f"Items: {quote.items}")
+    print(f"Estimated input tokens: {quote.input_tokens}")
+    print(f"Estimated output tokens: {quote.output_tokens}")
+    print(f"Estimated cost: ${quote.dollars:.4f}")
+    if args.dry_run or quote.items == 0:
+        print("API calls: 0")
+        return 0
+    if quote.input_tokens > 200_000 and not args.yes:
+        answer = input("Estimate exceeds 200,000 input tokens. Type 'yes' to continue: ")
+        if answer.strip().casefold() != "yes":
+            print("Build cancelled; API calls: 0")
+            return 1
+    if not config.api_key and not config.base_url.startswith(
+        ("http://localhost", "http://127.0.0.1")
+    ):
+        raise RuntimeError(
+            "No API key configured. Set SYNAPSE_API_KEY or add api_key to synapse.toml."
+        )
+    client = OpenAICompatible(config.base_url, config.api_key, config.model)
+    result = build(vault, config, client.complete, args.limit, args.oldest)
+    print(f"Built items: {result.items}")
+    print(f"Pages written: {result.pages}")
+    print(f"Actual input tokens: {client.usage.input_tokens}")
+    print(f"Actual output tokens: {client.usage.output_tokens}")
+    cost = actual_cost(config, client.usage.input_tokens, client.usage.output_tokens)
+    print(f"Actual cost: ${cost:.4f}")
     return 0
 
 

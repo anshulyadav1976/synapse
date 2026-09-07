@@ -78,17 +78,66 @@ Post-reindex results: 1
 
 ## Phase 2 — LLM client and the build pass
 
-- [ ] `llm.py`: one POST to `{base_url}/chat/completions` via `urllib.request`. Timeout, one retry with backoff on 429/5xx, error messages that name the base_url. Signature is `complete(system, user) -> str` so tests inject a fake
-- [ ] Config resolution: `synapse.toml` then env (`SYNAPSE_BASE_URL`, `SYNAPSE_API_KEY`, `SYNAPSE_MODEL`, `owner`)
-- [ ] `compress(item, owner)` — owner's turns full (~1500 char cap), others truncated to ~240. `DESIGN.md` §7
-- [ ] Prompt assembly: page index + FTS-selected candidate pages in full + one compressed source. **Never the whole wiki**
-- [ ] Text-block output parser (`===PAGE:slug===` … `===END===`)
-- [ ] Rails in code: slug regex, must-start-with-heading, max 6 pages per source, 6000-char cap, force-append source to `## Sources`, never delete a page
-- [ ] `synapse build --limit N [--dry-run] [--oldest]`, resumable via `items.built_at`
-- [ ] `--dry-run` prints estimated input tokens **and dollars**; hard confirm above a threshold
-- [ ] Wikilink parser → `links` table on every page write
+- [x] `llm.py`: one POST to `{base_url}/chat/completions` via `urllib.request`. Timeout, one retry with backoff on 429/5xx, error messages that name the base_url. Signature is `complete(system, user) -> str` so tests inject a fake
+- [x] Config resolution: `synapse.toml` then env (`SYNAPSE_BASE_URL`, `SYNAPSE_API_KEY`, `SYNAPSE_MODEL`, `owner`)
+- [x] `compress(item, owner)` — owner's turns full (~1500 char cap), others truncated to ~240. `DESIGN.md` §7
+- [x] Prompt assembly: page index + FTS-selected candidate pages in full + one compressed source. **Never the whole wiki**
+- [x] Text-block output parser (`===PAGE:slug===` … `===END===`)
+- [x] Rails in code: slug regex, must-start-with-heading, max 6 pages per source, 6000-char cap, force-append source to `## Sources`, never delete a page
+- [x] `synapse build --limit N [--dry-run] [--oldest]`, resumable via `items.built_at`
+- [x] `--dry-run` prints estimated input tokens **and dollars**; hard confirm above a threshold
+- [x] Wikilink parser → `links` table on every page write
 
-**Checkpoint 2:** `synapse build --dry-run --limit 50` prints a cost estimate and sends nothing. Then `synapse build --limit 5` against a real provider produces valid pages with correct dates, real `## Sources` paths, and `[[links]]` that resolve. Paste one generated page verbatim (redact personal content if needed) and the actual cost.
+**Checkpoint 2:** Passed on 2026-09-07 with `gpt-4o-mini`. The first paid five-item run completed but its console metrics were lost to a command-wrapper error, so a second resumable five-item batch captured the measurements below without repeating any item. Personal page content and identifiers were never copied into the repository.
+
+```text
+Model: gpt-4o-mini
+Items: 50
+Estimated input tokens: 77911
+Estimated output tokens: 60000
+Estimated cost: $0.0477
+API calls: 0
+
+Model: gpt-4o-mini
+Items: 5
+Estimated input tokens: 7714
+Estimated output tokens: 6000
+Estimated cost: $0.0048
+Built items: 5
+Pages written: 14
+Actual input tokens: 8216
+Actual output tokens: 3383
+Actual cost: $0.0033
+```
+
+Post-build structural verification across the 11 unique pages on disk:
+
+```text
+Pages starting with heading: 11
+Pages within 6000 chars: 11
+Pages with source paths: 11
+Missing source files: 0
+Valid dated fact/history lines: 52
+Invalid dated fact/history lines: 0
+Wikilinks: 11
+Resolved wikilinks: 9
+```
+
+One generated page, with personal content redacted while preserving its measured structure:
+
+```markdown
+# [redacted title]
+[redacted personal text]
+
+## Facts
+- [redacted date] [redacted personal fact]
+
+## Related
+- [[redacted-related-page]] — [redacted relationship]
+
+## Sources
+- [redacted valid raw source path]
+```
 
 ---
 
