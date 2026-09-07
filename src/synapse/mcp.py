@@ -1,0 +1,165 @@
+"""A small stdio MCP server with no SDK dependency."""
+
+import json
+import sys
+from pathlib import PurePosixPath
+from typing import Any
+
+from .graph import neighbors
+from .server import _safe_source
+from .vault import Vault
+
+LATEST_PROTOCOL = "2025-06-18"
+
+TOOLS = [
+    {
+        "name": "search",
+        "description": "Search the vault index. Results say whether to open them with read_page (slug) or read_source (source_path). Prefer one page for synthesized answers.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "query": {"type": "string", "description": "Words to search for"},
+                "limit": {"type": "integer", "minimum": 1, "maximum": 20, "default": 5},
+            },
+            "required": ["query"],
+        },
+    },
+    {
+        "name": "read_page",
+        "description": "Read one wiki page returned by search or list_pages. Do not bulk-read pages.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {"slug": {"type": "string"}},
+            "required": ["slug"],
+        },
+    },
+    {
+        "name": "list_pages",
+        "description": "List page slugs and titles only. Read one relevant page at a time afterward.",
+        "inputSchema": {"type": "object", "properties": {}},
+    },
+    {
+        "name": "neighbors",
+        "description": "List pages directly connected to one page. Read only a relevant neighbor.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {"slug": {"type": "string"}},
+            "required": ["slug"],
+        },
+    },
+    {
+        "name": "read_source",
+        "description": "Read one immutable raw source cited by a page when provenance is necessary.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {"path": {"type": "string"}},
+            "required": ["path"],
+        },
+    },
+]
+
+
+def _text(value: object, error: bool = False) -> dict[str, object]:
+    text = value if isinstance(value, str) else json.dumps(value, ensure_ascii=False, indent=2)
+    return {"content": [{"type": "text", "text": text}], "isError": error}
+
+
+def _string(arguments: dict[str, Any], name: str) -> str:
+    value = arguments.get(name)
+    if not isinstance(value, str) or not value:
+        raise ValueError(f"{name} must be a non-empty string")
+    return value
+
+
+def call_tool(vault: Vault, name: str, arguments: dict[str, Any]) -> dict[str, object]:
+    if name == "search":
+        limit = int(arguments.get("limit", 5))
+        if not 1 <= limit <= 20:
+            raise ValueError("limit must be between 1 and 20")
+        results = vault.search(_string(arguments, "query"), limit)
+        for result in results:
+            path = PurePosixPath(result["path"])
+            if path.parts[0] == "wiki":
+                result.update(kind="page", slug=path.stem)
+            else:
+                result.update(kind="source", source_path=path.as_posix())
+        return _text(results)
+    if name == "read_page":
+        slug = _string(arguments, "slug")
+        if "/" in slug or ".." in slug:
+            raise ValueError("slug must name one wiki page")
+        path = vault.wiki_path / f"{slug}.md"
+        if not path.is_file() or path.name.startswith("."):
+            raise FileNotFoundError(f"Page not found: {slug}")
+        return _text(path.read_text(encoding="utf-8"))
+    if name == "list_pages":
+        pages = []
+        for path in sorted(vault.wiki_path.glob("*.md")):
+            if path.name.startswith("."):
+                continue
+            heading = path.read_text(encoding="utf-8").splitlines()[0].removeprefix("# ")
+            pages.append({"slug": path.stem, "title": heading})
+        return _text(pages)
+    if name == "neighbors":
+        return _text(neighbors(vault, _string(arguments, "slug")))
+    if name == "read_source":
+        relative: PurePosixPath = _safe_source(_string(arguments, "path"))
+        path = vault.path / relative
+        if not path.is_file():
+            raise FileNotFoundError(f"Source not found: {relative}")
+        return _text(path.read_text(encoding="utf-8"))
+    raise ValueError(f"Unknown tool: {name}")
+
+
+def dispatch(vault: Vault, message: dict[str, Any]) -> dict[str, object] | None:
+    request_id = message.get("id")
+    method = message.get("method")
+    if request_id is None:
+        return None
+    try:
+        if method == "initialize":
+            requested = (message.get("params") or {}).get("protocolVersion")
+            result: object = {
+                "protocolVersion": requested if isinstance(requested, str) else LATEST_PROTOCOL,
+                "capabilities": {"tools": {"listChanged": False}},
+                "serverInfo": {"name": "synapse", "version": "0.1.0"},
+                "instructions": "Search first and read one relevant page at a time.",
+            }
+        elif method == "ping":
+            result = {}
+        elif method == "tools/list":
+            result = {"tools": TOOLS}
+        elif method == "tools/call":
+            params = message.get("params") or {}
+            try:
+                result = call_tool(vault, str(params.get("name", "")), params.get("arguments") or {})
+            except (ValueError, FileNotFoundError) as error:
+                result = _text(str(error), True)
+        else:
+            return {
+                "jsonrpc": "2.0",
+                "id": request_id,
+                "error": {"code": -32601, "message": f"Method not found: {method}"},
+            }
+        return {"jsonrpc": "2.0", "id": request_id, "result": result}
+    except (TypeError, ValueError) as error:
+        return {
+            "jsonrpc": "2.0",
+            "id": request_id,
+            "error": {"code": -32602, "message": str(error)},
+        }
+
+
+def serve(vault: Vault) -> None:
+    for line in sys.stdin:
+        try:
+            message = json.loads(line)
+            response = dispatch(vault, message)
+        except json.JSONDecodeError as error:
+            response = {
+                "jsonrpc": "2.0",
+                "id": None,
+                "error": {"code": -32700, "message": f"Parse error: {error.msg}"},
+            }
+        if response is not None:
+            print(json.dumps(response, ensure_ascii=False, separators=(",", ":")), flush=True)

@@ -208,13 +208,28 @@ Browser console errors: 0
 
 ## Phase 5 — Agent integration
 
-- [ ] `synapse mcp` — hand-rolled stdio JSON-RPC (~120 lines): `initialize`, `tools/list`, `tools/call`
-- [ ] Tools: `search`, `read_page`, `list_pages`, `neighbors`, `read_source`. Descriptions must instruct **one page at a time**
-- [ ] Verify live in **at least two** MCP clients (Claude Code and Cursor)
-- [ ] `skills/synapse/SKILL.md` for skill-based agents
-- [ ] Public Python API: `from synapse import Vault`
+- [x] `synapse mcp` — hand-rolled stdio JSON-RPC (~120 lines): `initialize`, `tools/list`, `tools/call`
+- [x] Tools: `search`, `read_page`, `list_pages`, `neighbors`, `read_source`. Descriptions must instruct **one page at a time**
+- [x] Verify live in Codex CLI (the owner chose Codex as the launch client instead of the proposed Claude Code and Cursor pair); retain a client-independent stdio protocol harness
+- [x] `skills/synapse/SKILL.md` for skill-based agents
+- [x] Public Python API: `from synapse import Vault`
 
 **Checkpoint 5:** in a real agent session with the MCP server configured, ask a question about the owner's history and watch the agent call `search` then `read_page` and answer correctly. Paste the tool-call sequence. Confirm **nothing from the vault is in the system prompt**.
+
+Passed on 2026-09-07 in a fresh, ephemeral Codex CLI agent session with Synapse configured as a required local STDIO MCP server. The query, page slug, and answer are redacted as personal data.
+
+```text
+MCP initialization: passed
+Agent tool calls:
+1. search(query="[redacted]", limit=20)
+2. read_page(slug="[redacted]")
+Retrieved page supported the answer: yes
+Vault page citation included: yes
+Vault content or page index in the system/initial prompt: no
+Client-independent stdio harness: 3 JSON-RPC responses, protocol 2025-06-18, 5 tools, 0 stray stdout lines
+Tests: 29 passed in 0.20s
+Ruff: all checks passed
+```
 
 ---
 

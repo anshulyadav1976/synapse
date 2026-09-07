@@ -9,6 +9,7 @@ from .graph import graph_json, neighbors
 from .index import reindex
 from .ingest import ingest
 from .llm import OpenAICompatible
+from .mcp import serve as serve_mcp
 from .query import ask
 from .server import demo_vault, serve
 from .vault import Vault
@@ -63,6 +64,9 @@ def parser() -> argparse.ArgumentParser:
     serve_command.add_argument("--demo", action="store_true")
     serve_command.add_argument("--port", type=int, default=8765)
     serve_command.add_argument("--no-open", action="store_true")
+
+    mcp_command = commands.add_parser("mcp", help="run the stdio MCP server")
+    mcp_command.add_argument("--vault", default="./synapse-vault")
     return root
 
 
@@ -138,6 +142,9 @@ def main(argv: list[str] | None = None) -> int:
         serve(vault, args.port, not args.no_open)
         if temporary:
             temporary.cleanup()
+        return 0
+    if args.command == "mcp":
+        serve_mcp(vault)
         return 0
 
     config = vault.config()
