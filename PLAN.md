@@ -242,26 +242,30 @@ Do not treat this as polish. For an adoption-driven project this phase *is* the 
 - [x] `docs/adapters.md` with the worked 30-line example, `configuration.md`, `mcp.md`, `graph.md` (the recursive-CTE piece — blog-worthy on its own), `costs.md`
 - [x] `CONTRIBUTING.md` leading with "add an adapter"
 - [x] LICENSE (MIT), GitHub Actions running `pytest` + `ruff` on 3.11/3.12/3.13
-- [ ] Publish to PyPI; confirm `uvx --from synapse-vault synapse --help` works from a clean machine
-- [ ] Repo hygiene: description, topics, social preview image, pinned issues for "adapter wanted"
+- [x] Publish to PyPI; confirm `uvx --from synapse-vault synapse --help` works from a clean machine
+- [x] Repo hygiene: description, topics, social preview image, pinned issues for "adapter wanted"
   - [x] Description, topics, and pinned adapter issue
-  - [ ] Upload `docs/social-preview.png` in GitHub repository settings (browser authentication required)
+  - [x] Upload `docs/social-preview.png` in GitHub repository settings
 
 **Checkpoint 6:** someone who has never seen the project gets from the README to a populated graph in under two minutes, following only what is written.
 
-Pre-publication verification on 2026-09-08 (checkpoint not yet passed because the PyPI release and GitHub social-preview upload require owner authentication):
+Passed on 2026-09-08 using the public PyPI release and GitHub repository:
 
 ```text
-Distribution: synapse-vault 0.1.0
+Public distribution: synapse-vault 0.1.0 (wheel and sdist)
+GitHub release: v0.1.0
 Runtime dependencies in wheel metadata: 0
 Wheel contents: dashboard present, 20 demo pages present
 Twine package check: wheel passed, sdist passed
 Python 3.11: 29 passed in 0.29s
 Python 3.12: 29 passed in 0.23s
 Python 3.13: 29 passed in 0.25s
-Clean no-cache wheel demo ready: 0.58s
+Public no-cache `uvx --from synapse-vault synapse --help`: passed
+Public no-cache demo ready: 0.50s
 Demo vault: 5 items, 20 pages, 20 nodes, 61 edges
-Demo GIF: 13.43s, synthetic data only, 0 browser console errors
+Public demo browser check: 20 nodes, 61 edges, 0 console errors
+Demo GIF: 13.43s, synthetic data only
+GitHub social preview: confirmed
 ```
 
 ---
