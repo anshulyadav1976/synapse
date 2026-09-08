@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "synapse-vault"
 version = "0.1.0"
-description = "A local-first personal knowledge wiki backed by Markdown and SQLite"
+description = "Private local memory for AI agents, backed by Markdown and SQLite"
 readme = "README.md"
 license = "MIT"
 license-files = ["LICENSE"]

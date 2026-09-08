@@ -7,18 +7,20 @@
 **Point it at text. Get a searchable archive for free. Spend a few cents turning it into a Markdown wiki your agent can query.**
 
 [![CI](https://github.com/anshulyadav1976/synapse/actions/workflows/ci.yml/badge.svg)](https://github.com/anshulyadav1976/synapse/actions/workflows/ci.yml)
-[![PyPI](https://img.shields.io/pypi/v/synapse-vault)](https://pypi.org/project/synapse-vault/)
+[![PyPI](https://img.shields.io/pypi/v/synapse-vault?cacheSeconds=300)](https://pypi.org/project/synapse-vault/)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-3157a4)](https://www.python.org/)
 [![zero runtime dependencies](https://img.shields.io/badge/runtime_dependencies-0-13a36f)](https://github.com/anshulyadav1976/synapse/blob/main/pyproject.toml)
 [![MIT](https://img.shields.io/badge/license-MIT-6f5bd3)](https://github.com/anshulyadav1976/synapse/blob/main/LICENSE)
 
 </div>
 
-Give Codex a private, local memory without filling every prompt with your history:
+Give any AI agent or workspace application a private, local memory without filling every prompt with your history:
 
 ```bash
-codex mcp add synapse -- uvx --from synapse-vault synapse mcp --vault /absolute/path/to/my-brain
+uvx --from synapse-vault synapse mcp --vault /absolute/path/to/my-brain
 ```
+
+That command is a local STDIO MCP server, not a Codex or OpenAI integration. Connect it directly to MCP-capable clients such as Codex, Claude Code, OpenCode, or OpenClaw. Pi, Orbit, Hermes, and other workspace agents can use MCP when supported or the bundled skill and CLI. See the [copy-paste setup examples](https://github.com/anshulyadav1976/synapse/blob/main/docs/mcp.md).
 
 Nothing from the vault is injected into the agent's prompt. The agent searches first, then reads one relevant Markdown page. A thousand unopened pages cost zero tokens.
 
@@ -92,7 +94,17 @@ Set `SYNAPSE_BASE_URL`, `SYNAPSE_MODEL`, and (when required) `SYNAPSE_API_KEY`. 
 
 ## Agent access
 
-The MCP server exposes `search`, `read_page`, `list_pages`, `neighbors`, and `read_source`. It is a small stdlib JSON-RPC loop over STDIO, so there is no daemon and no MCP SDK dependency. See [MCP setup](https://github.com/anshulyadav1976/synapse/blob/main/docs/mcp.md).
+The MCP server exposes `search`, `read_page`, `list_pages`, `neighbors`, and `read_source`. It is a small stdlib JSON-RPC loop over STDIO, so there is no daemon and no MCP SDK dependency.
+
+```bash
+# Codex
+codex mcp add synapse -- uvx --from synapse-vault synapse mcp --vault /absolute/path/to/my-brain
+
+# Claude Code
+claude mcp add --transport stdio synapse -- uvx --from synapse-vault synapse mcp --vault /absolute/path/to/my-brain
+```
+
+OpenCode, OpenClaw, generic MCP JSON, and skill/CLI examples for Pi and other workspace agents are in [MCP setup](https://github.com/anshulyadav1976/synapse/blob/main/docs/mcp.md). The integration boundary is MCP or ordinary commands—not a particular agent vendor.
 
 Python works too:
 
