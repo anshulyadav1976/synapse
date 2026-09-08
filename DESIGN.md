@@ -280,7 +280,7 @@ Every competing memory product stuffs context and burns tokens on every turn. Pu
 
 ## 14. Packaging and the demo
 
-- **`uvx synapse`** for zero-install. Largest single adoption lever in Python today. Also publish to PyPI for `pip install synapse-memory` (check name availability; `synapse` is likely taken on PyPI — the CLI can still be `synapse`).
+- **`uvx --from synapse-vault synapse`** for zero-install. Largest single adoption lever in Python today. The intended `synapse-memory` distribution name and `synapse` are both owned on PyPI, so publish as `synapse-vault`; the CLI remains `synapse`.
 - **Zero runtime dependencies.** Python 3.11+, stdlib only: `sqlite3`, `urllib.request`, `http.server`, `json`, `zipfile`, `mailbox`, `email`, `tomllib`. Dev dependencies (pytest, ruff) do not count. This is a headline that contrasts hard with v1 and with every competitor.
 - **Ship a sample vault** so `uvx synapse serve --demo` shows a populated graph with **no API key and no import**. Let people see it in ten seconds before it asks for anything.
 - Verify FTS5 is available at `init` and fail with a clear, actionable message rather than a cryptic SQL error.

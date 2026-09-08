@@ -2,6 +2,7 @@
 
 import argparse
 import json
+import os
 import time
 
 from .build import actual_cost, build, estimate
@@ -14,59 +15,61 @@ from .query import ask
 from .server import demo_vault, serve
 from .vault import Vault
 
+DEFAULT_VAULT = os.environ.get("SYNAPSE_VAULT", "./synapse-vault")
+
 
 def parser() -> argparse.ArgumentParser:
     root = argparse.ArgumentParser(prog="synapse")
     commands = root.add_subparsers(dest="command", required=True)
 
     init = commands.add_parser("init", help="create a Synapse vault")
-    init.add_argument("path", nargs="?", default="./synapse-vault")
+    init.add_argument("path", nargs="?", default=DEFAULT_VAULT)
 
     status = commands.add_parser("status", help="show vault counts")
-    status.add_argument("--vault", default="./synapse-vault")
+    status.add_argument("--vault", default=DEFAULT_VAULT)
 
     ingest_command = commands.add_parser("ingest", help="import text without API calls")
     ingest_command.add_argument("input")
-    ingest_command.add_argument("--vault", default="./synapse-vault")
+    ingest_command.add_argument("--vault", default=DEFAULT_VAULT)
     ingest_command.add_argument("--format", dest="format_name")
     ingest_command.add_argument("--min-chars", type=int, default=200)
 
     search = commands.add_parser("search", help="full-text search the vault")
     search.add_argument("query")
-    search.add_argument("--vault", default="./synapse-vault")
+    search.add_argument("--vault", default=DEFAULT_VAULT)
     search.add_argument("--limit", type=int, default=10)
 
     rebuild = commands.add_parser("reindex", help="rebuild SQLite from Markdown")
-    rebuild.add_argument("--vault", default="./synapse-vault")
+    rebuild.add_argument("--vault", default=DEFAULT_VAULT)
 
     build_command = commands.add_parser("build", help="turn unbuilt sources into wiki pages")
-    build_command.add_argument("--vault", default="./synapse-vault")
+    build_command.add_argument("--vault", default=DEFAULT_VAULT)
     build_command.add_argument("--limit", type=int)
     build_command.add_argument("--dry-run", action="store_true")
     build_command.add_argument("--oldest", action="store_true")
     build_command.add_argument("--yes", action="store_true", help="confirm a large estimated spend")
 
     graph_command = commands.add_parser("graph", help="export the wiki graph")
-    graph_command.add_argument("--vault", default="./synapse-vault")
+    graph_command.add_argument("--vault", default=DEFAULT_VAULT)
     graph_command.add_argument("--json", action="store_true", required=True)
 
     neighbor_command = commands.add_parser("neighbors", help="list a page's graph neighbors")
     neighbor_command.add_argument("slug")
-    neighbor_command.add_argument("--vault", default="./synapse-vault")
+    neighbor_command.add_argument("--vault", default=DEFAULT_VAULT)
 
     ask_command = commands.add_parser("ask", help="answer from retrieved wiki pages")
     ask_command.add_argument("question")
-    ask_command.add_argument("--vault", default="./synapse-vault")
+    ask_command.add_argument("--vault", default=DEFAULT_VAULT)
     ask_command.add_argument("--limit", type=int, default=5)
 
     serve_command = commands.add_parser("serve", help="open the local dashboard")
-    serve_command.add_argument("--vault", default="./synapse-vault")
+    serve_command.add_argument("--vault", default=DEFAULT_VAULT)
     serve_command.add_argument("--demo", action="store_true")
     serve_command.add_argument("--port", type=int, default=8765)
     serve_command.add_argument("--no-open", action="store_true")
 
     mcp_command = commands.add_parser("mcp", help="run the stdio MCP server")
-    mcp_command.add_argument("--vault", default="./synapse-vault")
+    mcp_command.add_argument("--vault", default=DEFAULT_VAULT)
     return root
 
 

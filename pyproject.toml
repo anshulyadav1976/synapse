@@ -1,13 +1,35 @@
 [build-system]
-requires = ["setuptools>=68"]
+requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "synapse-memory"
+name = "synapse-vault"
 version = "0.1.0"
 description = "A local-first personal knowledge wiki backed by Markdown and SQLite"
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{name = "Anshu Yadav"}]
 requires-python = ">=3.11"
 dependencies = []
+keywords = ["knowledge-graph", "local-first", "markdown", "mcp", "personal-knowledge"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Database :: Database Engines/Servers",
+    "Topic :: Text Processing :: Indexing",
+]
+
+[project.urls]
+Homepage = "https://github.com/anshulyadav1976/synapse"
+Documentation = "https://github.com/anshulyadav1976/synapse#readme"
+Issues = "https://github.com/anshulyadav1976/synapse/issues"
 
 [project.optional-dependencies]
 dev = ["pytest>=8", "ruff>=0.6"]
