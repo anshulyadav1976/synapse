@@ -13,7 +13,7 @@ CREATE TABLE IF NOT EXISTS items (
     chars INTEGER NOT NULL,
     built_at TEXT
 );
-CREATE VIRTUAL TABLE IF NOT EXISTS docs_fts USING fts5(path, title, body);
+CREATE VIRTUAL TABLE IF NOT EXISTS docs_fts USING fts5(path, title, body, tokenize='porter unicode61');
 CREATE TABLE IF NOT EXISTS links (
     from_slug TEXT NOT NULL,
     to_slug TEXT NOT NULL,
