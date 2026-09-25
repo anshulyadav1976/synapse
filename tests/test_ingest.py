@@ -24,7 +24,7 @@ def test_ingest_is_write_once_searchable_and_reindexable(tmp_path):
     assert raw[0].read_text() == original
 
     vault.db_path.unlink()
-    assert reindex(vault.path) == (1, 0)
+    assert reindex(vault.path) == (1, 0, 0)
     assert vault.search("community garden")
 
 
@@ -35,4 +35,3 @@ def test_trivia_filter(tmp_path):
     assert result.seen == 1
     assert result.filtered == 1
     assert result.added == 0
-

@@ -57,11 +57,12 @@ def replace_links(connection: sqlite3.Connection, from_slug: str, body: str) -> 
     )
 
 
-def reindex(vault_path: Path) -> tuple[int, int]:
+def reindex(vault_path: Path) -> tuple[int, int, int]:
     database = vault_path / "synapse.db"
     initialize(database)
     raw_count = 0
     page_count = 0
+    note_count = 0
     with connect(database) as connection:
         connection.execute("DELETE FROM items")
         connection.execute("DELETE FROM docs_fts")
@@ -93,7 +94,13 @@ def reindex(vault_path: Path) -> tuple[int, int]:
                         "UPDATE items SET built_at = 'indexed' WHERE path = ?", (source.group(1),)
                     )
             page_count += 1
-    return raw_count, page_count
+        for path in sorted((vault_path / "notes").glob("*.md")):
+            body = path.read_text(encoding="utf-8")
+            match = re.search(r"^#\s+(.+)$", body, re.MULTILINE)
+            title = match.group(1).strip() if match else path.stem
+            index_document(connection, path.relative_to(vault_path).as_posix(), title, body)
+            note_count += 1
+    return raw_count, page_count, note_count
 
 
 def _fts_query(query: str) -> str:

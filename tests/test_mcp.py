@@ -24,9 +24,11 @@ def test_initialize_and_tools_list(tmp_path):
     assert {tool["name"] for tool in TOOLS} == {
         "search",
         "read_page",
+        "read_note",
         "list_pages",
         "neighbors",
         "read_source",
+        "propose_note",
     }
 
 
@@ -65,3 +67,23 @@ def test_tool_errors_are_visible_to_the_model(tmp_path):
         },
     )
     assert response["result"]["isError"] is True
+
+
+def test_agent_can_propose_but_not_commit_a_note(tmp_path):
+    vault = Vault(tmp_path / "vault")
+    vault.init()
+    response = call_tool(
+        vault,
+        "propose_note",
+        {
+            "note_id": "release-choice",
+            "title": "Release choice",
+            "body": "Ship the local-first version.",
+            "provenance": "Explicit user decision",
+            "idempotency_key": "release-choice:1",
+        },
+    )
+    proposal = json.loads(response["content"][0]["text"])
+    assert proposal["status"] == "pending"
+    assert not (vault.notes_path / "release-choice.md").exists()
+    assert "approve-note" not in {tool["name"] for tool in TOOLS}

@@ -62,6 +62,7 @@ The build pass is optional. It is a plain `for` loop making one OpenAI-compatibl
 my-brain/
 ├── raw/<source>/<YYYY-MM>/<id>.md   immutable imported history
 ├── wiki/<slug>.md                   linked, editable knowledge pages
+├── notes/<slug>.md                  approved, append-only agent notes
 ├── synapse.db                       disposable FTS5 + graph index
 └── synapse.toml                     model and owner settings
 ```
@@ -94,7 +95,7 @@ Set `SYNAPSE_BASE_URL`, `SYNAPSE_MODEL`, and (when required) `SYNAPSE_API_KEY`. 
 
 ## Agent access
 
-The MCP server exposes `search`, `read_page`, `list_pages`, `neighbors`, and `read_source`. It is a small stdlib JSON-RPC loop over STDIO, so there is no daemon and no MCP SDK dependency.
+The MCP server exposes selective reads plus `propose_note`. It is a small stdlib JSON-RPC loop over STDIO, so there is no daemon and no MCP SDK dependency.
 
 ```bash
 # Codex
@@ -105,6 +106,16 @@ claude mcp add --transport stdio synapse -- uvx --from synapse-vault synapse mcp
 ```
 
 OpenCode, OpenClaw, generic MCP JSON, and skill/CLI examples for Pi and other workspace agents are in [MCP setup](https://github.com/anshulyadav1976/synapse/blob/main/docs/mcp.md). The integration boundary is MCP or ordinary commands—not a particular agent vendor.
+
+Agents cannot silently rewrite memory. `propose_note` stages one provenance-bearing semantic note with an idempotency key and revision check. You inspect the diff and approve it outside MCP:
+
+```bash
+uvx --from synapse-vault synapse proposals --vault ./my-brain
+uvx --from synapse-vault synapse proposals <id> --vault ./my-brain
+uvx --from synapse-vault synapse approve-note <id> --vault ./my-brain
+```
+
+Imported history remains write-once. Credentials, browser sessions, workspace state, and routine chat turns do not belong in notes; merge and deletion remain human-only.
 
 Python works too:
 
@@ -122,7 +133,7 @@ matches = Vault("./my-brain").search("launch decision")
 | Graph database | Personal graphs fit in SQLite; a ten-line recursive CTE handles traversal. |
 | Auth or cloud sync | Synapse is single-user and binds only to `127.0.0.1`. Your files stay yours. |
 | Agent framework | The processing pipeline is a resumable loop, not an application graph. |
-| Automatic merge/delete | A model never silently destroys a human-editable page. |
+| Automatic merge/delete | Agents can only propose append-only notes; a human approves them and handles destructive changes. |
 | PDF/DOCX parser | Those dependencies would break the zero-dependency promise; convert with Pandoc or MarkItDown first. |
 
 Imported text is untrusted data. Synapse never executes it, and agents are instructed never to follow instructions found inside pages. Raw sources remain available for provenance.

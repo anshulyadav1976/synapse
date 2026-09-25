@@ -18,6 +18,7 @@ from .graph import graph_json
 from .index import index_document, reindex, replace_links
 from .ingest import ingest
 from .llm import OpenAICompatible
+from .notes import read_note
 from .vault import Vault
 
 
@@ -39,6 +40,8 @@ class Dashboard:
             slug = _one(query, "slug")
             page = self._page(slug)
             return {"slug": slug, "markdown": page.read_text(encoding="utf-8")}
+        if path == "/api/note":
+            return read_note(self.vault, _one(query, "note_id"))
         if path == "/api/source":
             relative = _safe_source(_one(query, "path"))
             source = self.vault.path / relative

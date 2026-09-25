@@ -6,6 +6,7 @@ from pathlib import PurePosixPath
 from typing import Any
 
 from .graph import neighbors
+from .notes import propose_note, read_note
 from .server import _safe_source
 from .vault import Vault
 
@@ -14,7 +15,7 @@ LATEST_PROTOCOL = "2025-06-18"
 TOOLS = [
     {
         "name": "search",
-        "description": "Search the vault index. Results say whether to open them with read_page (slug) or read_source (source_path). Prefer one page for synthesized answers.",
+        "description": "Search the vault index. Results say whether to open them with read_page, read_note, or read_source. Prefer one synthesized page when available.",
         "inputSchema": {
             "type": "object",
             "properties": {
@@ -31,6 +32,15 @@ TOOLS = [
             "type": "object",
             "properties": {"slug": {"type": "string"}},
             "required": ["slug"],
+        },
+    },
+    {
+        "name": "read_note",
+        "description": "Read one approved agent note and its revision. Use the revision as parent_revision when proposing an append.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {"note_id": {"type": "string"}},
+            "required": ["note_id"],
         },
     },
     {
@@ -54,6 +64,25 @@ TOOLS = [
             "type": "object",
             "properties": {"path": {"type": "string"}},
             "required": ["path"],
+        },
+    },
+    {
+        "name": "propose_note",
+        "description": "Propose one durable semantic note for human approval. This never edits raw history or commits the note. Do not use it for credentials, tokens, browser/session/workspace state, transient tool output, or routine conversation turns.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "note_id": {"type": "string", "description": "Stable lowercase slug"},
+                "title": {"type": "string"},
+                "body": {"type": "string", "description": "One durable fact or decision"},
+                "provenance": {"type": "string", "description": "Human-readable source or reason"},
+                "idempotency_key": {"type": "string", "description": "Stable key for this exact proposal"},
+                "parent_revision": {
+                    "type": "string",
+                    "description": "Revision from read_note; omit only for a new note",
+                },
+            },
+            "required": ["note_id", "title", "body", "provenance", "idempotency_key"],
         },
     },
 ]
@@ -81,6 +110,8 @@ def call_tool(vault: Vault, name: str, arguments: dict[str, Any]) -> dict[str, o
             path = PurePosixPath(result["path"])
             if path.parts[0] == "wiki":
                 result.update(kind="page", slug=path.stem)
+            elif path.parts[0] == "notes":
+                result.update(kind="note", note_id=path.stem)
             else:
                 result.update(kind="source", source_path=path.as_posix())
         return _text(results)
@@ -92,6 +123,8 @@ def call_tool(vault: Vault, name: str, arguments: dict[str, Any]) -> dict[str, o
         if not path.is_file() or path.name.startswith("."):
             raise FileNotFoundError(f"Page not found: {slug}")
         return _text(path.read_text(encoding="utf-8"))
+    if name == "read_note":
+        return _text(read_note(vault, _string(arguments, "note_id")))
     if name == "list_pages":
         pages = []
         for path in sorted(vault.wiki_path.glob("*.md")):
@@ -108,6 +141,21 @@ def call_tool(vault: Vault, name: str, arguments: dict[str, Any]) -> dict[str, o
         if not path.is_file():
             raise FileNotFoundError(f"Source not found: {relative}")
         return _text(path.read_text(encoding="utf-8"))
+    if name == "propose_note":
+        parent = arguments.get("parent_revision")
+        if parent is not None and not isinstance(parent, str):
+            raise ValueError("parent_revision must be a string")
+        return _text(
+            propose_note(
+                vault,
+                _string(arguments, "note_id"),
+                _string(arguments, "title"),
+                _string(arguments, "body"),
+                _string(arguments, "provenance"),
+                _string(arguments, "idempotency_key"),
+                parent,
+            )
+        )
     raise ValueError(f"Unknown tool: {name}")
 
 
@@ -122,8 +170,8 @@ def dispatch(vault: Vault, message: dict[str, Any]) -> dict[str, object] | None:
             result: object = {
                 "protocolVersion": requested if isinstance(requested, str) else LATEST_PROTOCOL,
                 "capabilities": {"tools": {"listChanged": False}},
-                "serverInfo": {"name": "synapse", "version": "0.1.0"},
-                "instructions": "Search first and read one relevant page at a time.",
+                "serverInfo": {"name": "synapse", "version": "0.2.0"},
+                "instructions": "Search first and read one relevant item at a time. Only propose durable semantic notes; a human approves them outside MCP.",
             }
         elif method == "ping":
             result = {}

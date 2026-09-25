@@ -282,6 +282,34 @@ GitHub social preview: confirmed
 
 ---
 
+## Post-launch v0.2 — safe agent-written memory
+
+- [x] Separate `notes/` namespace; imported `raw/` and generated `wiki/` behaviour unchanged
+- [x] MCP `propose_note` with stable note ID, provenance, idempotency key, parent revision, and diff preview
+- [x] MCP `read_note` returns the current revision for conflict-safe appends
+- [x] Human-only `synapse proposals` and `synapse approve-note`; no MCP commit, merge, delete, or raw-write tool
+- [x] Reindex and dashboard search include approved notes; notes do not enter the wiki graph
+- [x] Operational credentials, browser/session/workspace state, transient output, and routine turns explicitly excluded
+- [ ] Publish and verify `synapse-vault 0.2.0` from public PyPI
+
+Local checkpoint on 2026-09-25:
+
+```text
+Python 3.11: 34 passed in 0.25s
+Python 3.12: 34 passed in 0.23s
+Python 3.13: 34 passed in 0.27s
+Ruff: all checks passed
+MCP proposal → CLI diff review → human approval → FTS search: passed
+Reindex: 0 raw items, 0 wiki pages, 1 synthetic agent note
+Wheel version: 0.2.0
+Runtime dependencies in wheel metadata: 0 (pytest and ruff remain dev-extra only)
+Wheel contains synapse/notes.py: yes
+Twine package check: wheel passed, sdist passed
+Fresh wheel `synapse --help`: passed
+```
+
+---
+
 ## Deliberately not in v1
 
 Each with its trigger for reconsidering. Keeping this list honest is a trust signal; mirror it in the README.

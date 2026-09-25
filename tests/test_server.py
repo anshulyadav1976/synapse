@@ -3,6 +3,7 @@ import time
 import pytest
 
 from synapse import Vault
+from synapse.notes import approve_note, propose_note
 from synapse.server import Dashboard, _safe_source, demo_vault
 
 
@@ -28,6 +29,16 @@ def test_dashboard_reads_and_edits_a_page(tmp_path):
     assert dashboard.get("/api/page", {"slug": ["alpha"]})["markdown"] == "# Alpha\n"
     dashboard.write_page({"slug": "alpha", "markdown": "# Alpha\n\n- [[beta]] — link"})
     assert "[[beta]]" in page.read_text()
+
+
+def test_dashboard_reads_an_approved_agent_note(tmp_path):
+    vault = Vault(tmp_path / "vault")
+    vault.init()
+    proposal = propose_note(vault, "choice", "Choice", "Keep it small.", "User", "choice:1")
+    approve_note(vault, proposal["proposal_id"])
+    note = Dashboard(vault).get("/api/note", {"note_id": ["choice"]})
+    assert note["note_id"] == "choice"
+    assert "Keep it small." in note["markdown"]
 
 
 def test_source_paths_cannot_escape_raw():

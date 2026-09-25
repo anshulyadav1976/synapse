@@ -9,8 +9,17 @@ def test_init_creates_complete_empty_vault(tmp_path):
 
     assert vault.raw_path.is_dir()
     assert vault.wiki_path.is_dir()
+    assert vault.notes_path.is_dir()
+    assert vault.proposals_path.is_dir()
     assert vault.config_path.read_text().startswith("# Synapse")
-    assert vault.status() == {"items": 0, "unbuilt": 0, "pages": 0, "sources": {}}
+    assert vault.status() == {
+        "items": 0,
+        "unbuilt": 0,
+        "pages": 0,
+        "notes": 0,
+        "proposals": 0,
+        "sources": {},
+    }
 
     with sqlite3.connect(vault.db_path) as connection:
         tables = {
@@ -20,4 +29,3 @@ def test_init_creates_complete_empty_vault(tmp_path):
             )
         }
     assert {"items", "docs_fts", "links"} <= tables
-

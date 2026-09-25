@@ -11,6 +11,7 @@ from .index import reindex
 from .ingest import ingest
 from .llm import OpenAICompatible
 from .mcp import serve as serve_mcp
+from .notes import approve_note, get_proposal, list_proposals
 from .query import ask
 from .server import demo_vault, serve
 from .vault import Vault
@@ -70,6 +71,14 @@ def parser() -> argparse.ArgumentParser:
 
     mcp_command = commands.add_parser("mcp", help="run the stdio MCP server")
     mcp_command.add_argument("--vault", default=DEFAULT_VAULT)
+
+    proposals = commands.add_parser("proposals", help="list or review pending agent notes")
+    proposals.add_argument("proposal_id", nargs="?")
+    proposals.add_argument("--vault", default=DEFAULT_VAULT)
+
+    approve = commands.add_parser("approve-note", help="approve one proposed agent note")
+    approve.add_argument("proposal_id")
+    approve.add_argument("--vault", default=DEFAULT_VAULT)
     return root
 
 
@@ -88,6 +97,8 @@ def main(argv: list[str] | None = None) -> int:
         print(f"Items: {summary['items']}")
         print(f"Unbuilt: {summary['unbuilt']}")
         print(f"Pages: {summary['pages']}")
+        print(f"Agent notes: {summary['notes']}")
+        print(f"Pending proposals: {summary['proposals']}")
         sources = summary["sources"]
         source_text = ", ".join(f"{name}={count}" for name, count in sources.items())
         print("Sources: " + (source_text or "none"))
@@ -119,8 +130,27 @@ def main(argv: list[str] | None = None) -> int:
         print(f"{len(results)} result(s)")
         return 0
     if args.command == "reindex":
-        raw_count, page_count = reindex(vault.path)
-        print(f"Reindexed {raw_count} raw item(s) and {page_count} wiki page(s)")
+        raw_count, page_count, note_count = reindex(vault.path)
+        print(
+            f"Reindexed {raw_count} raw item(s), {page_count} wiki page(s), "
+            f"and {note_count} agent note(s)"
+        )
+        return 0
+    if args.command == "proposals":
+        if args.proposal_id:
+            proposal = get_proposal(vault, args.proposal_id)
+            print(f"Proposal: {proposal['proposal_id']} ({proposal['status']})")
+            print(f"Note: {proposal['note_id']} — {proposal['title']}")
+            print(proposal["diff"], end="")
+        else:
+            proposals = list_proposals(vault)
+            for proposal in proposals:
+                print(f"{proposal['proposal_id']}\t{proposal['note_id']}\t{proposal['title']}")
+            print(f"{len(proposals)} pending proposal(s)")
+        return 0
+    if args.command == "approve-note":
+        result = approve_note(vault, args.proposal_id)
+        print(f"Approved notes/{result['note_id']}.md at revision {result['revision']}")
         return 0
     if args.command == "graph":
         print(json.dumps(graph_json(vault), ensure_ascii=False, indent=2))

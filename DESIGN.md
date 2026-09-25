@@ -270,6 +270,8 @@ Four surfaces over one core module. The core is a Python API; everything else is
 - **Python API**: `from synapse import Vault; Vault("./my-brain").search("...")`.
 - **REST**: a few `GET /api/...` endpoints from the same server the dashboard uses.
 
+Post-launch agent writes stay deliberately asymmetric. MCP may stage an append-only semantic note under a separate `notes/` namespace, but it cannot approve, merge, delete, or touch `raw/`. Every proposal carries a stable note ID, provenance, idempotency key, and parent revision, and returns a diff. A human commits it through the CLI. Operational state such as credentials, browser profiles, live sessions, and account routing never enters semantic memory or the graph.
+
 ### The principle to advertise
 
 **Nothing is injected into the agent's prompt.** Not the page index, not a summary. Tool descriptions instruct the agent to read one page at a time. A thousand pages cost zero tokens until one is opened.
