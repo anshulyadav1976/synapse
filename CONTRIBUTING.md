@@ -13,7 +13,7 @@ Good adapter pull requests:
 - fall back gracefully for malformed records when useful data remains;
 - include no personal export data, even anonymised excerpts from a real archive.
 
-Formats currently wanted include WhatsApp, email (`.mbox`/`.eml`), Claude, Gemini, Discord, Slack, iMessage, Signal, Notion, Bear, and Apple Notes.
+Formats currently wanted include WhatsApp, email (`.mbox`/`.eml`), Gemini, Discord, Slack, iMessage, Signal, Notion, Bear, and Apple Notes.
 
 ## Development
 

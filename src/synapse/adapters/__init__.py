@@ -27,14 +27,35 @@ def _zip_names(path: Path) -> list[str]:
         return []
 
 
+def _is_claude(head: bytes) -> bool:
+    # ChatGPT's legacy export and claude.ai's both name the file conversations.json;
+    # the first conversation's keys tell them apart without parsing the whole file.
+    messages, mapping = head.find(b'"chat_messages"'), head.find(b'"mapping"')
+    return messages >= 0 and (mapping < 0 or messages < mapping)
+
+
+def _head(path: Path, size: int = 65536) -> bytes:
+    with path.open("rb") as handle:
+        return handle.read(size)
+
+
+def _zip_head(path: Path, name: str, size: int = 65536) -> bytes:
+    with ZipFile(path) as archive, archive.open(name) as handle:
+        return handle.read(size)
+
+
 def detect(path: Path) -> str:
     if path.is_dir():
         names = {child.name for child in path.iterdir()}
+        if "conversations.json" in names and _is_claude(_head(path / "conversations.json")):
+            return "claude"
         if "export_manifest.json" in names or any(
             name.startswith("conversations-") and name.endswith(".json") for name in names
         ):
             return "chatgpt"
         return "dir"
+    if path.name == "conversations.json" and _is_claude(_head(path)):
+        return "claude"
     if path.name == "conversations.json" or (
         path.name.startswith("conversations-") and path.suffix == ".json"
     ):
@@ -43,6 +64,9 @@ def detect(path: Path) -> str:
         return "chatgpt"
     if path.suffix.lower() == ".zip":
         names = _zip_names(path)
+        listing = next((name for name in names if Path(name).name == "conversations.json"), None)
+        if listing and _is_claude(_zip_head(path, listing)):
+            return "claude"
         if any(
             Path(name).name == "export_manifest.json"
             or Path(name).name == "conversations.json"
@@ -66,5 +90,5 @@ def read(path: str | Path, format_name: str | None = None) -> Iterator[Item]:
 
 
 # Importing registers the built-in readers while keeping contributor adapters tiny.
-from . import chatgpt, files  # noqa: F401
+from . import chatgpt, claude, files  # noqa: E402,F401
 

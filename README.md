@@ -40,6 +40,8 @@ uvx --from synapse-vault synapse ingest ~/Downloads/chatgpt-export --vault ./my-
 uvx --from synapse-vault synapse serve --vault ./my-brain
 ```
 
+A claude.ai export zip works the same way; the format is detected automatically.
+
 Ingest is local and free: it writes Markdown and builds a disposable SQLite FTS5 index. Search works immediately:
 
 ```bash
