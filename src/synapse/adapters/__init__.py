@@ -66,5 +66,5 @@ def read(path: str | Path, format_name: str | None = None) -> Iterator[Item]:
 
 
 # Importing registers the built-in readers while keeping contributor adapters tiny.
-from . import chatgpt, files  # noqa: F401
+from . import chatgpt, files  # noqa: E402,F401
 
