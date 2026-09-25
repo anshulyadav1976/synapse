@@ -290,7 +290,7 @@ GitHub social preview: confirmed
 - [x] Human-only `synapse proposals` and `synapse approve-note`; no MCP commit, merge, delete, or raw-write tool
 - [x] Reindex and dashboard search include approved notes; notes do not enter the wiki graph
 - [x] Operational credentials, browser/session/workspace state, transient output, and routine turns explicitly excluded
-- [ ] Publish and verify `synapse-vault 0.2.0` from public PyPI
+- [x] Publish and verify `synapse-vault 0.2.0` from public PyPI
 
 Local checkpoint on 2026-09-25:
 
@@ -306,6 +306,9 @@ Runtime dependencies in wheel metadata: 0 (pytest and ruff remain dev-extra only
 Wheel contains synapse/notes.py: yes
 Twine package check: wheel passed, sdist passed
 Fresh wheel `synapse --help`: passed
+GitHub trusted-publishing workflow: passed in 21s
+Public PyPI version: 0.2.0 (wheel and sdist)
+Public no-cache `uvx --refresh --from synapse-vault==0.2.0 synapse --help`: passed
 ```
 
 ---
