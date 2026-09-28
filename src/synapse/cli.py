@@ -6,6 +6,7 @@ import os
 import time
 
 from .build import actual_cost, build, estimate
+from .db import search_index_needs_rebuild
 from .graph import graph_json, neighbors
 from .index import reindex
 from .ingest import ingest
@@ -102,6 +103,8 @@ def main(argv: list[str] | None = None) -> int:
         sources = summary["sources"]
         source_text = ", ".join(f"{name}={count}" for name, count in sources.items())
         print("Sources: " + (source_text or "none"))
+        if search_index_needs_rebuild(vault.db_path):
+            print(f'Search index: outdated tokenizer; run: synapse reindex --vault "{vault.path}"')
         return 0
     if args.command == "ingest":
         started = time.perf_counter()
