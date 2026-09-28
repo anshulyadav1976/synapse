@@ -115,7 +115,7 @@ def main(argv: list[str] | None = None) -> int:
             args.min_chars,
             vault.config().owner,
         )
-        label = "Conversations" if result.format == "chatgpt" else "Items"
+        label = "Conversations" if result.format in {"chatgpt", "claude"} else "Items"
         print(f"Format: {result.format}")
         print(f"{label} seen: {result.seen}")
         print(f"Items added: {result.added}")
