@@ -81,7 +81,9 @@ def test_claude_file_folder_and_zip(tmp_path):
 
 def test_legacy_chatgpt_conversations_json_is_not_claude(tmp_path):
     legacy = tmp_path / "conversations.json"
-    legacy.write_bytes((CHATGPT / "conversations-000.json").read_bytes())
+    conversations = json.loads((CHATGPT / "conversations-000.json").read_text())
+    conversations[0]["title"] = "chat_messages"
+    legacy.write_text(json.dumps(conversations))
     assert detect(legacy) == "chatgpt"
     archive_path = tmp_path / "export.zip"
     with ZipFile(archive_path, "w") as archive:
@@ -117,4 +119,3 @@ def test_heading_chunking_and_trivia_count():
         turns=[Turn("me", "12345"), Turn("assistant", "x" * 100)],
     )
     assert owner_chars(conversation) == 5
-

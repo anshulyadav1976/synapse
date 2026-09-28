@@ -1,5 +1,6 @@
 """Small reader registry: every input format stops at Item."""
 
+import re
 from collections.abc import Callable, Iterator
 from pathlib import Path
 from typing import TypeAlias
@@ -27,11 +28,15 @@ def _zip_names(path: Path) -> list[str]:
         return []
 
 
+CLAUDE_KEY = re.compile(rb'(?:^|[,{])\s*"chat_messages"\s*:')
+CHATGPT_KEY = re.compile(rb'(?:^|[,{])\s*"mapping"\s*:')
+
+
 def _is_claude(head: bytes) -> bool:
     # ChatGPT's legacy export and claude.ai's both name the file conversations.json;
     # the first conversation's keys tell them apart without parsing the whole file.
-    messages, mapping = head.find(b'"chat_messages"'), head.find(b'"mapping"')
-    return messages >= 0 and (mapping < 0 or messages < mapping)
+    messages, mapping = CLAUDE_KEY.search(head), CHATGPT_KEY.search(head)
+    return messages is not None and (mapping is None or messages.start() < mapping.start())
 
 
 def _head(path: Path, size: int = 65536) -> bytes:
@@ -90,5 +95,4 @@ def read(path: str | Path, format_name: str | None = None) -> Iterator[Item]:
 
 
 # Importing registers the built-in readers while keeping contributor adapters tiny.
-from . import chatgpt, claude, files  # noqa: E402,F401
-
+from . import chatgpt, claude, files  # noqa: F401

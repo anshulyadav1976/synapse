@@ -39,6 +39,8 @@ def _conversation(data: dict[str, Any]) -> Item:
         raise ValueError("A Claude conversation is missing its uuid")
     turns = []
     for message in data.get("chat_messages") or []:
+        if not isinstance(message, dict):
+            continue
         text = _text(message)
         if text:
             speaker = "me" if message.get("sender") == "human" else "claude"
@@ -52,9 +54,12 @@ def _conversation(data: dict[str, Any]) -> Item:
     )
 
 
-def _items(conversations: list[dict[str, Any]]) -> Iterator[Item]:
+def _items(conversations: object) -> Iterator[Item]:
+    if not isinstance(conversations, list):
+        raise TypeError("Claude conversations.json must contain a list of conversations")
     for conversation in conversations:
-        yield _conversation(conversation)
+        if isinstance(conversation, dict):
+            yield _conversation(conversation)
 
 
 @adapter("claude")
