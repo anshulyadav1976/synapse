@@ -2,6 +2,7 @@
 
 import re
 import sqlite3
+from datetime import datetime
 from pathlib import Path
 
 from .db import connect, initialize
@@ -59,6 +60,8 @@ def replace_links(connection: sqlite3.Connection, from_slug: str, body: str) -> 
 
 def reindex(vault_path: Path) -> tuple[int, int, int]:
     database = vault_path / "synapse.db"
+    with connect(database) as connection:
+        connection.execute("DROP TABLE IF EXISTS docs_fts")
     initialize(database)
     raw_count = 0
     page_count = 0
@@ -103,24 +106,122 @@ def reindex(vault_path: Path) -> tuple[int, int, int]:
     return raw_count, page_count, note_count
 
 
-def _fts_query(query: str) -> str:
+SEARCH_STOP_WORDS = {
+    "a",
+    "an",
+    "and",
+    "are",
+    "did",
+    "do",
+    "does",
+    "for",
+    "from",
+    "how",
+    "i",
+    "in",
+    "is",
+    "it",
+    "of",
+    "on",
+    "or",
+    "that",
+    "the",
+    "their",
+    "them",
+    "this",
+    "to",
+    "was",
+    "were",
+    "what",
+    "when",
+    "where",
+    "which",
+    "who",
+    "why",
+    "with",
+}
+RECENCY_WEIGHT = 0.25  # up to +25% score for the newest candidate; relevance still dominates
+
+
+def _tokens(query: str) -> list[str]:
     tokens = re.findall(r"[\w-]+", query, re.UNICODE)
-    return " AND ".join(f'"{token.replace(chr(34), chr(34) * 2)}"' for token in tokens)
+    kept = [token for token in tokens if token.casefold() not in SEARCH_STOP_WORDS]
+    return kept or tokens
+
+
+def _quote(token: str) -> str:
+    return '"' + token.replace(chr(34), chr(34) * 2) + '"'
+
+
+def _fts_query(query: str, joiner: str = " AND ") -> str:
+    return joiner.join(_quote(token) for token in _tokens(query))
+
+
+def _timestamp(value: str | None) -> datetime | None:
+    try:
+        return datetime.fromisoformat(value) if value else None
+    except ValueError:
+        return None
+
+
+def _adjusted_score(
+    row: sqlite3.Row, oldest: datetime | None, newest: datetime | None
+) -> float:
+    relevance = -row["score"]  # bm25 is negative; larger relevance is better
+    timestamp = _timestamp(row["ts"])
+    if timestamp and oldest and newest and newest > oldest:
+        span = (newest - oldest).total_seconds()
+        age = (newest - timestamp).total_seconds()
+        relevance *= 1 + RECENCY_WEIGHT * (1 - age / span)
+    return relevance
 
 
 def search(database: Path, query: str, limit: int = 10) -> list[dict[str, str]]:
-    match = _fts_query(query)
-    if not match:
+    """Stemmed full-text search.
+
+    Documents containing every meaningful word rank first; if that leaves room, documents
+    matching only some words follow (best BM25 first), so a natural-language question or an
+    extra word no longer returns nothing. Newer sources get a small boost so an update
+    outranks the note it replaces.
+    """
+    strict, loose = _fts_query(query), _fts_query(query, " OR ")
+    if not strict or limit < 1:
         return []
+    pool = max(limit * 5, 50)
+    sql = """
+        SELECT docs_fts.path AS path, docs_fts.title AS title,
+               snippet(docs_fts, 2, '[', ']', ' … ', 20) AS snippet,
+               bm25(docs_fts, 0.0, 3.0, 1.0) AS score, items.ts AS ts
+        FROM docs_fts LEFT JOIN items ON items.path = docs_fts.path
+        WHERE docs_fts MATCH ?
+        ORDER BY score
+        LIMIT ?
+    """
     with connect(database) as connection:
-        rows = connection.execute(
-            """
-            SELECT path, title, snippet(docs_fts, 2, '[', ']', ' … ', 20) AS snippet
-            FROM docs_fts
-            WHERE docs_fts MATCH ?
-            ORDER BY rank
-            LIMIT ?
-            """,
-            (match, limit),
-        )
-        return [dict(row) for row in rows]
+        tiers = [connection.execute(sql, (strict, pool)).fetchall()]
+        if len(tiers[0]) < limit and loose != strict:
+            tiers.append(connection.execute(sql, (loose, pool)).fetchall())
+    results: list[dict[str, str]] = []
+    seen: set[str] = set()
+    for rows in tiers:
+        dated = [timestamp for row in rows if (timestamp := _timestamp(row["ts"]))]
+        oldest, newest = (min(dated), max(dated)) if dated else (None, None)
+
+        def adjusted(
+            row: sqlite3.Row,
+            oldest: datetime | None = oldest,
+            newest: datetime | None = newest,
+        ) -> float:
+            return _adjusted_score(row, oldest, newest)
+
+        for row in sorted(rows, key=adjusted, reverse=True):
+            if row["path"] in seen:
+                continue
+            seen.add(row["path"])
+            result = {"path": row["path"], "title": row["title"], "snippet": row["snippet"]}
+            if row["ts"]:
+                result["date"] = row["ts"][:10]
+            results.append(result)
+            if len(results) >= limit:
+                return results
+    return results

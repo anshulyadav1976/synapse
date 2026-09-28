@@ -13,7 +13,7 @@ CREATE TABLE IF NOT EXISTS items (
     chars INTEGER NOT NULL,
     built_at TEXT
 );
-CREATE VIRTUAL TABLE IF NOT EXISTS docs_fts USING fts5(path, title, body);
+CREATE VIRTUAL TABLE IF NOT EXISTS docs_fts USING fts5(path, title, body, tokenize='porter unicode61');
 CREATE TABLE IF NOT EXISTS links (
     from_slug TEXT NOT NULL,
     to_slug TEXT NOT NULL,
@@ -44,3 +44,10 @@ def initialize(path: Path) -> None:
         require_fts5(connection)
         connection.executescript(SCHEMA)
 
+
+def search_index_needs_rebuild(path: Path) -> bool:
+    with connect(path) as connection:
+        row = connection.execute(
+            "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'docs_fts'"
+        ).fetchone()
+    return bool(row and "porter unicode61" not in row["sql"])

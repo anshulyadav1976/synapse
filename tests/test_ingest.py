@@ -1,6 +1,7 @@
 from pathlib import Path
 
 from synapse import Vault
+from synapse.db import connect, search_index_needs_rebuild
 from synapse.index import reindex
 from synapse.ingest import ingest
 
@@ -35,3 +36,19 @@ def test_trivia_filter(tmp_path):
     assert result.seen == 1
     assert result.filtered == 1
     assert result.added == 0
+
+
+def test_reindex_upgrades_the_search_tokenizer(tmp_path):
+    vault = Vault(tmp_path / "vault")
+    vault.init()
+    with connect(vault.db_path) as connection:
+        connection.execute("DROP TABLE docs_fts")
+        connection.execute("CREATE VIRTUAL TABLE docs_fts USING fts5(path, title, body)")
+    ingest(vault, FIXTURES / "note.md", min_chars=0)
+    assert vault.search("telescopes") == []
+    assert search_index_needs_rebuild(vault.db_path)
+
+    assert reindex(vault.path) == (1, 0, 0)
+
+    assert vault.search("telescopes")
+    assert not search_index_needs_rebuild(vault.db_path)
