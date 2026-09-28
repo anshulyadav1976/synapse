@@ -60,6 +60,8 @@ def replace_links(connection: sqlite3.Connection, from_slug: str, body: str) -> 
 
 def reindex(vault_path: Path) -> tuple[int, int, int]:
     database = vault_path / "synapse.db"
+    with connect(database) as connection:
+        connection.execute("DROP TABLE IF EXISTS docs_fts")
     initialize(database)
     raw_count = 0
     page_count = 0
@@ -105,11 +107,38 @@ def reindex(vault_path: Path) -> tuple[int, int, int]:
 
 
 SEARCH_STOP_WORDS = {
-    "a", "about", "all", "an", "and", "any", "are", "at", "be", "by", "can", "could", "did", "do",
-    "does", "for", "from", "get", "got", "had", "has", "have", "how", "i", "if", "in", "is", "it",
-    "its", "me", "my", "now", "of", "on", "or", "our", "should", "so", "that", "the", "their",
-    "them", "there", "this", "to", "us", "was", "we", "were", "what", "whats", "when", "where",
-    "which", "who", "why", "will", "with", "would", "you", "your",
+    "a",
+    "an",
+    "and",
+    "are",
+    "did",
+    "do",
+    "does",
+    "for",
+    "from",
+    "how",
+    "i",
+    "in",
+    "is",
+    "it",
+    "of",
+    "on",
+    "or",
+    "that",
+    "the",
+    "their",
+    "them",
+    "this",
+    "to",
+    "was",
+    "were",
+    "what",
+    "when",
+    "where",
+    "which",
+    "who",
+    "why",
+    "with",
 }
 RECENCY_WEIGHT = 0.25  # up to +25% score for the newest candidate; relevance still dominates
 
@@ -128,6 +157,25 @@ def _fts_query(query: str, joiner: str = " AND ") -> str:
     return joiner.join(_quote(token) for token in _tokens(query))
 
 
+def _timestamp(value: str | None) -> datetime | None:
+    try:
+        return datetime.fromisoformat(value) if value else None
+    except ValueError:
+        return None
+
+
+def _adjusted_score(
+    row: sqlite3.Row, oldest: datetime | None, newest: datetime | None
+) -> float:
+    relevance = -row["score"]  # bm25 is negative; larger relevance is better
+    timestamp = _timestamp(row["ts"])
+    if timestamp and oldest and newest and newest > oldest:
+        span = (newest - oldest).total_seconds()
+        age = (newest - timestamp).total_seconds()
+        relevance *= 1 + RECENCY_WEIGHT * (1 - age / span)
+    return relevance
+
+
 def search(database: Path, query: str, limit: int = 10) -> list[dict[str, str]]:
     """Stemmed full-text search.
 
@@ -137,7 +185,7 @@ def search(database: Path, query: str, limit: int = 10) -> list[dict[str, str]]:
     outranks the note it replaces.
     """
     strict, loose = _fts_query(query), _fts_query(query, " OR ")
-    if not strict:
+    if not strict or limit < 1:
         return []
     pool = max(limit * 5, 50)
     sql = """
@@ -156,16 +204,15 @@ def search(database: Path, query: str, limit: int = 10) -> list[dict[str, str]]:
     results: list[dict[str, str]] = []
     seen: set[str] = set()
     for rows in tiers:
-        dated = sorted(row["ts"] for row in rows if row["ts"])
-        oldest, newest = (dated[0], dated[-1]) if dated else ("", "")
+        dated = [timestamp for row in rows if (timestamp := _timestamp(row["ts"]))]
+        oldest, newest = (min(dated), max(dated)) if dated else (None, None)
 
-        def adjusted(row: sqlite3.Row) -> float:
-            relevance = -row["score"]  # bm25 is negative; larger relevance is better
-            if row["ts"] and newest > oldest:
-                span = (datetime.fromisoformat(newest) - datetime.fromisoformat(oldest)).total_seconds()
-                age = (datetime.fromisoformat(newest) - datetime.fromisoformat(row["ts"])).total_seconds()
-                relevance *= 1 + RECENCY_WEIGHT * (1 - age / span)
-            return relevance
+        def adjusted(
+            row: sqlite3.Row,
+            oldest: datetime | None = oldest,
+            newest: datetime | None = newest,
+        ) -> float:
+            return _adjusted_score(row, oldest, newest)
 
         for row in sorted(rows, key=adjusted, reverse=True):
             if row["path"] in seen:
