@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "synapse-vault"
-version = "0.2.0"
+version = "0.3.0"
 description = "Private local memory for AI agents, backed by Markdown and SQLite"
 readme = "README.md"
 license = "MIT"

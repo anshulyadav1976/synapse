@@ -274,7 +274,7 @@ GitHub social preview: confirmed
 
 - [ ] **`whatsapp`** — `_chat.txt`, multiple locale timestamp patterns, multi-line continuation, drop `<Media omitted>`
 - [ ] **`mail`** — `.mbox` / `.eml` via stdlib, thread on `In-Reply-To`/`References`, **strip quoted reply chains**
-- [x] **`claude`** — claude.ai export zip, its unzipped folder, or `conversations.json`; told apart from ChatGPT's legacy `conversations.json` by sniffing the first conversation's keys. Not yet run against a real export
+- [x] **`claude`** — claude.ai export zip, its unzipped folder, or `conversations.json`; told apart from ChatGPT's legacy `conversations.json` by sniffing the first conversation's keys. Owner-confirmed real-export smoke test passed on 2026-09-30; no personal output retained
 - [ ] `gemini` export
 - [ ] `synapse merge <a> <b>` — the human escape hatch for near-duplicate pages
 - [ ] Open "adapter wanted" issues for Discord, Slack, iMessage, Signal, Notion, Bear, Apple Notes
