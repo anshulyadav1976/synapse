@@ -191,7 +191,7 @@ def dispatch(vault: Vault, message: dict[str, Any]) -> dict[str, object] | None:
             result: object = {
                 "protocolVersion": requested if isinstance(requested, str) else LATEST_PROTOCOL,
                 "capabilities": {"tools": {"listChanged": False}},
-                "serverInfo": {"name": "synapse", "version": "0.2.0"},
+                "serverInfo": {"name": "synapse", "version": "0.4.1"},
                 "instructions": "Search first and read one relevant item at a time. Only propose durable semantic notes; a human approves them outside MCP.",
             }
         elif method == "ping":
@@ -202,7 +202,7 @@ def dispatch(vault: Vault, message: dict[str, Any]) -> dict[str, object] | None:
             params = message.get("params") or {}
             try:
                 result = call_tool(vault, str(params.get("name", "")), params.get("arguments") or {})
-            except (ValueError, FileNotFoundError) as error:
+            except (ValueError, FileNotFoundError, RuntimeError) as error:
                 result = _text(str(error), True)
         else:
             return {

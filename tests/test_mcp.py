@@ -68,6 +68,20 @@ def test_tool_errors_are_visible_to_the_model(tmp_path):
     )
     assert response["result"]["isError"] is True
 
+    hybrid = dispatch(
+        vault,
+        {
+            "jsonrpc": "2.0",
+            "id": 4,
+            "method": "tools/call",
+            "params": {
+                "name": "search",
+                "arguments": {"query": "conceptual match", "hybrid": True},
+            },
+        },
+    )
+    assert hybrid["result"]["isError"] is True
+
 
 def test_agent_can_propose_but_not_commit_a_note(tmp_path):
     vault = Vault(tmp_path / "vault")

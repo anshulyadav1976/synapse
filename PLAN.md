@@ -365,3 +365,22 @@ Runtime dependencies added: 0
 Twine package check: wheel passed, sdist passed
 Fresh 0.4.0 wheel `synapse --help`: passed
 ```
+
+### v0.4.1 reliability patch
+
+- [x] Preserve vectors when unchanged documents are reindexed
+- [x] Commit successful embedding batches so retries do not repeat paid calls
+- [x] Return hybrid-search failures as MCP tool errors without stopping the server
+- [x] Retain caches for other embedding models
+
+**Checkpoint v0.4.1:** local synthetic verification on 2026-09-30. No personal data or paid endpoint was used.
+
+```text
+Python 3.11: 42 passed in 0.29s
+Python 3.12: 42 passed in 0.34s
+Python 3.13: 42 passed in 0.46s
+Ruff: all checks passed
+Twine package check: wheel passed, sdist passed
+Fresh 0.4.1 wheel `synapse --help`: passed
+Runtime dependencies added: 0
+```

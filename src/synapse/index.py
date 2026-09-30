@@ -18,6 +18,11 @@ BUILD_RECEIPT = re.compile(r"^\s*-\s*\[([^]]+)\]\s+(raw/\S+\.md)\s*$")
 
 
 def index_document(connection: sqlite3.Connection, path: str, title: str, body: str) -> None:
+    existing = connection.execute(
+        "SELECT title, body FROM docs_fts WHERE path = ? LIMIT 1", (path,)
+    ).fetchone()
+    if existing and existing["title"] == title and existing["body"] == body:
+        return
     connection.execute("DELETE FROM docs_fts WHERE path = ?", (path,))
     connection.execute("DELETE FROM embeddings WHERE path = ?", (path,))
     connection.execute(

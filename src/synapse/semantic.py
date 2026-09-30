@@ -118,49 +118,50 @@ def build_embeddings(
             )
         }
     pending = [chunk for chunk in chunks if existing.get((chunk.path, chunk.number)) != chunk.digest]
-    written: list[tuple[_Chunk, list[float]]] = []
+    current = {(chunk.path, chunk.number): chunk.digest for chunk in chunks}
+    selected = ("raw/", "wiki/", "notes/") if include_raw else ("wiki/", "notes/")
+    with connect(database) as connection:
+        for row in connection.execute(
+            "SELECT path, chunk, content_hash FROM embeddings WHERE model = ?", (model,)
+        ).fetchall():
+            key = (row["path"], row["chunk"])
+            if row["path"].startswith(selected) and current.get(key) != row["content_hash"]:
+                connection.execute(
+                    "DELETE FROM embeddings WHERE path = ? AND chunk = ? AND model = ?",
+                    (row["path"], row["chunk"], model),
+                )
+
+    written = 0
     for start in range(0, len(pending), batch_size):
         batch = pending[start : start + batch_size]
         vectors = embed([chunk.text for chunk in batch])
         if len(vectors) != len(batch):
             raise RuntimeError("Embedding endpoint returned the wrong number of vectors")
-        written.extend(zip(batch, vectors, strict=True))
-
-    current = {(chunk.path, chunk.number) for chunk in chunks}
-    selected = ("raw/", "wiki/", "notes/") if include_raw else ("wiki/", "notes/")
-    with connect(database) as connection:
-        for row in connection.execute(
-            "SELECT path, chunk, model FROM embeddings"
-        ).fetchall():
-            key = (row["path"], row["chunk"])
-            if row["path"].startswith(selected) and (row["model"] != model or key not in current):
+        packed = [(chunk, *_pack(vector)) for chunk, vector in zip(batch, vectors, strict=True)]
+        with connect(database) as connection:
+            for chunk, vector, dimensions in packed:
                 connection.execute(
-                    "DELETE FROM embeddings WHERE path = ? AND chunk = ? AND model = ?",
-                    (row["path"], row["chunk"], row["model"]),
+                    """
+                    INSERT INTO embeddings(path, chunk, content_hash, model, dimensions, vector, text)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                    ON CONFLICT(path, chunk, model) DO UPDATE SET
+                        content_hash=excluded.content_hash,
+                        dimensions=excluded.dimensions,
+                        vector=excluded.vector,
+                        text=excluded.text
+                    """,
+                    (
+                        chunk.path,
+                        chunk.number,
+                        chunk.digest,
+                        model,
+                        dimensions,
+                        vector,
+                        chunk.text,
+                    ),
                 )
-        for chunk, vector in written:
-            packed, dimensions = _pack(vector)
-            connection.execute(
-                """
-                INSERT INTO embeddings(path, chunk, content_hash, model, dimensions, vector, text)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
-                ON CONFLICT(path, chunk, model) DO UPDATE SET
-                    content_hash=excluded.content_hash,
-                    dimensions=excluded.dimensions,
-                    vector=excluded.vector,
-                    text=excluded.text
-                """,
-                (
-                    chunk.path,
-                    chunk.number,
-                    chunk.digest,
-                    model,
-                    dimensions,
-                    packed,
-                    chunk.text,
-                ),
-            )
-    return EmbeddingResult(documents, len(chunks), len(written), len(chunks) - len(written))
+        written += len(batch)
+    return EmbeddingResult(documents, len(chunks), written, len(chunks) - written)
 
 
 def _normalise(vector: list[float]) -> list[float]:

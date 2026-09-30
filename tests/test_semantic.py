@@ -33,6 +33,14 @@ def test_hybrid_search_finds_a_paraphrase_and_updates_incrementally(tmp_path):
 
     assert first.embedded_chunks == 2
     assert second.embedded_chunks == 0
+    with connect(vault.db_path) as connection:
+        index_document(
+            connection,
+            "wiki/capacity.md",
+            "Capacity plan",
+            pages["capacity.md"],
+        )
+        assert connection.execute("SELECT count(*) FROM embeddings").fetchone()[0] == 2
     assert vault.search("How do we handle rapid growth?") == []
     result = vault.search(
         "How do we handle rapid growth?",
@@ -50,6 +58,47 @@ def test_hybrid_search_finds_a_paraphrase_and_updates_incrementally(tmp_path):
         vault.path, vault.db_path, "text-embedding-3-small"
     )
     assert estimate.pending_chunks == 1
+
+
+def test_embedding_batches_are_resumable_and_models_are_retained(tmp_path):
+    vault = Vault(tmp_path / "vault")
+    vault.init()
+    with connect(vault.db_path) as connection:
+        for number in range(3):
+            body = f"# Page {number}\n\nContent {number}\n"
+            path = f"wiki/page-{number}.md"
+            (vault.path / path).write_text(body)
+            index_document(connection, path, f"Page {number}", body)
+
+    calls = 0
+
+    def fail_second_batch(texts):
+        nonlocal calls
+        calls += 1
+        if calls == 2:
+            raise RuntimeError("temporary provider error")
+        return _vectors(texts)
+
+    try:
+        build_embeddings(vault.path, vault.db_path, "model-a", fail_second_batch, batch_size=2)
+    except RuntimeError:
+        pass
+    with connect(vault.db_path) as connection:
+        assert connection.execute(
+            "SELECT count(*) FROM embeddings WHERE model = 'model-a'"
+        ).fetchone()[0] == 2
+
+    resumed = build_embeddings(vault.path, vault.db_path, "model-a", _vectors, batch_size=2)
+    assert resumed.embedded_chunks == 1
+    build_embeddings(vault.path, vault.db_path, "model-b", _vectors)
+    with connect(vault.db_path) as connection:
+        models = connection.execute(
+            "SELECT model, count(*) AS chunks FROM embeddings GROUP BY model ORDER BY model"
+        ).fetchall()
+    assert [(row["model"], row["chunks"]) for row in models] == [
+        ("model-a", 3),
+        ("model-b", 3),
+    ]
 
 
 def test_search_filters_dated_raw_sources(tmp_path):
