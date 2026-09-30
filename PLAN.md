@@ -320,7 +320,7 @@ Each with its trigger for reconsidering. Keeping this list honest is a trust sig
 
 | Not built | Reconsider when |
 |---|---|
-| Embeddings / `sqlite-vec` | Paraphrase recall demonstrably misses on a real corpus |
+| Mandatory embeddings / `sqlite-vec` | Never; optional stdlib hybrid retrieval landed after measured paraphrase misses |
 | Graph database | Never at this scale |
 | PDF / DOCX adapters | Users ask, and only as an optional extra that preserves the zero-dep core |
 | Auth / multi-user / sync | It stops being a local single-user tool |
@@ -336,3 +336,32 @@ Each with its trigger for reconsidering. Keeping this list honest is a trust sig
 - Default vault location: `./synapse-vault` in cwd, or `~/.synapse/vault`?
 - Repo strategy: recommended is tagging the current tree `v1-hackathon` and rewriting `main`. Needs confirmation before anything destructive.
 - Is `synapse ask` in scope for v1, or does MCP cover it?
+
+---
+
+## Post-launch v0.4 — optional hybrid retrieval
+
+- [x] Dependency-free `/embeddings` client using the existing `urllib` transport
+- [x] Incremental `synapse embed` with dry-run, confirmation threshold, content hashes, and raw-history opt-in
+- [x] Exact cosine scan in disposable SQLite plus reciprocal-rank fusion with FTS5
+- [x] CLI, REST, dashboard, Python API, and MCP hybrid search
+- [x] Structured `after`, `before`, `source`, and `kind` filters
+- [x] Documentation that separates zero-call keyword search from opt-in semantic calls
+
+**Checkpoint v0.4:** local synthetic verification on 2026-09-30. No personal data or paid endpoint was used.
+
+```text
+Python 3.11: 41 passed in 0.30s
+Python 3.12: 41 passed in 0.53s
+Python 3.13: 41 passed in 0.53s
+Ruff: all checks passed
+Dry run: 20 documents, 20 chunks, 1,955 estimated input tokens, 0 API calls
+Index run: 20 embedded chunks, 0 unchanged, 1,940 provider-reported input tokens
+Hybrid query: "watering crops"
+Results: 3 semantic matches; Climate Tech ranked first
+Dashboard: hybrid toggle disabled before indexing, enabled after indexing
+Dashboard console errors: 0
+Runtime dependencies added: 0
+Twine package check: wheel passed, sdist passed
+Fresh 0.4.0 wheel `synapse --help`: passed
+```

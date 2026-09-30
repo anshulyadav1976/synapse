@@ -6,7 +6,7 @@ import os
 import time
 
 from .build import actual_cost, build, estimate
-from .db import search_index_needs_rebuild
+from .db import initialize, search_index_needs_rebuild
 from .graph import graph_json, neighbors
 from .index import reindex
 from .ingest import ingest
@@ -14,6 +14,7 @@ from .llm import OpenAICompatible
 from .mcp import serve as serve_mcp
 from .notes import approve_note, get_proposal, list_proposals
 from .query import ask
+from .semantic import build_embeddings, estimate_embeddings
 from .server import demo_vault, serve
 from .vault import Vault
 
@@ -40,9 +41,20 @@ def parser() -> argparse.ArgumentParser:
     search.add_argument("query")
     search.add_argument("--vault", default=DEFAULT_VAULT)
     search.add_argument("--limit", type=int, default=10)
+    search.add_argument("--hybrid", action="store_true", help="fuse FTS with semantic search")
+    search.add_argument("--after", help="only dated raw sources on or after this ISO date")
+    search.add_argument("--before", help="only dated raw sources before this ISO date")
+    search.add_argument("--source", help="only one raw source adapter, such as chatgpt")
+    search.add_argument("--kind", choices=("raw", "wiki", "note"))
 
     rebuild = commands.add_parser("reindex", help="rebuild SQLite from Markdown")
     rebuild.add_argument("--vault", default=DEFAULT_VAULT)
+
+    embed_command = commands.add_parser("embed", help="build the optional semantic index")
+    embed_command.add_argument("--vault", default=DEFAULT_VAULT)
+    embed_command.add_argument("--include-raw", action="store_true")
+    embed_command.add_argument("--dry-run", action="store_true")
+    embed_command.add_argument("--yes", action="store_true", help="confirm a large embedding run")
 
     build_command = commands.add_parser("build", help="turn unbuilt sources into wiki pages")
     build_command.add_argument("--vault", default=DEFAULT_VAULT)
@@ -92,6 +104,8 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     vault = Vault(args.vault)
+    if vault.db_path.exists():
+        initialize(vault.db_path)
     if args.command == "status":
         summary = vault.status()
         print(f"Vault: {vault.path}")
@@ -100,6 +114,8 @@ def main(argv: list[str] | None = None) -> int:
         print(f"Pages: {summary['pages']}")
         print(f"Agent notes: {summary['notes']}")
         print(f"Pending proposals: {summary['proposals']}")
+        models = ", ".join(summary["semantic_models"])
+        print(f"Semantic chunks: {summary['semantic_chunks']}" + (f" ({models})" if models else ""))
         sources = summary["sources"]
         source_text = ", ".join(f"{name}={count}" for name, count in sources.items())
         print("Sources: " + (source_text or "none"))
@@ -126,9 +142,18 @@ def main(argv: list[str] | None = None) -> int:
         print("API calls: 0")
         return 0
     if args.command == "search":
-        results = vault.search(args.query, args.limit)
+        results = vault.search(
+            args.query,
+            args.limit,
+            hybrid=args.hybrid,
+            after=args.after,
+            before=args.before,
+            source=args.source,
+            kind=args.kind,
+        )
         for result in results:
-            print(f"{result['title']}  ({result['path']})")
+            match = f" [{result['match']}]" if result.get("match") else ""
+            print(f"{result['title']}  ({result['path']}){match}")
             print(f"  {result['snippet']}")
         print(f"{len(results)} result(s)")
         return 0
@@ -138,6 +163,53 @@ def main(argv: list[str] | None = None) -> int:
             f"Reindexed {raw_count} raw item(s), {page_count} wiki page(s), "
             f"and {note_count} agent note(s)"
         )
+        return 0
+    if args.command == "embed":
+        if not vault.db_path.exists():
+            raise FileNotFoundError(f"No Synapse vault found at {vault.path}. Run: synapse init")
+        initialize(vault.db_path)
+        config = vault.config()
+        quote = estimate_embeddings(
+            vault.path,
+            vault.db_path,
+            config.embedding_model,
+            args.include_raw,
+        )
+        print(f"Embedding model: {config.embedding_model}")
+        print(f"Documents: {quote.documents}")
+        print(f"Chunks: {quote.chunks}")
+        print(f"Chunks to embed: {quote.pending_chunks}")
+        print(f"Estimated input tokens: {quote.input_tokens}")
+        if args.dry_run or quote.pending_chunks == 0:
+            print("API calls: 0")
+            return 0
+        if quote.input_tokens > 200_000 and not args.yes:
+            answer = input("Estimate exceeds 200,000 input tokens. Type 'yes' to continue: ")
+            if answer.strip().casefold() != "yes":
+                print("Embedding cancelled; API calls: 0")
+                return 1
+        if not config.embedding_api_key and not config.embedding_base_url.startswith(
+            ("http://localhost", "http://127.0.0.1")
+        ):
+            raise RuntimeError(
+                "No embedding API key configured. Set SYNAPSE_EMBEDDING_API_KEY "
+                "or SYNAPSE_API_KEY."
+            )
+        client = OpenAICompatible(
+            config.embedding_base_url,
+            config.embedding_api_key,
+            config.embedding_model,
+        )
+        result = build_embeddings(
+            vault.path,
+            vault.db_path,
+            config.embedding_model,
+            client.embed,
+            args.include_raw,
+        )
+        print(f"Embedded chunks: {result.embedded_chunks}")
+        print(f"Unchanged chunks: {result.skipped_chunks}")
+        print(f"Actual input tokens: {client.usage.input_tokens}")
         return 0
     if args.command == "proposals":
         if args.proposal_id:

@@ -20,6 +20,16 @@ CREATE TABLE IF NOT EXISTS links (
     phrase TEXT NOT NULL DEFAULT '',
     PRIMARY KEY (from_slug, to_slug)
 );
+CREATE TABLE IF NOT EXISTS embeddings (
+    path TEXT NOT NULL,
+    chunk INTEGER NOT NULL,
+    content_hash TEXT NOT NULL,
+    model TEXT NOT NULL,
+    dimensions INTEGER NOT NULL,
+    vector BLOB NOT NULL,
+    text TEXT NOT NULL,
+    PRIMARY KEY (path, chunk, model)
+);
 """
 
 

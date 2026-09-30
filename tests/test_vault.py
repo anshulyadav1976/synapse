@@ -19,6 +19,8 @@ def test_init_creates_complete_empty_vault(tmp_path):
         "notes": 0,
         "proposals": 0,
         "sources": {},
+        "semantic_chunks": 0,
+        "semantic_models": [],
     }
 
     with sqlite3.connect(vault.db_path) as connection:

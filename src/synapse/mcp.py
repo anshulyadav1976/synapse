@@ -15,12 +15,21 @@ LATEST_PROTOCOL = "2025-06-18"
 TOOLS = [
     {
         "name": "search",
-        "description": "Search the vault index. Results say whether to open them with read_page, read_note, or read_source. Prefer one synthesized page when available.",
+        "description": "Search the vault index. Use hybrid=true for conceptual wording or after a keyword miss; it requires a prior `synapse embed`. Results say whether to open them with read_page, read_note, or read_source. Prefer one synthesized page when available.",
         "inputSchema": {
             "type": "object",
             "properties": {
                 "query": {"type": "string", "description": "Words to search for"},
                 "limit": {"type": "integer", "minimum": 1, "maximum": 20, "default": 5},
+                "hybrid": {
+                    "type": "boolean",
+                    "default": False,
+                    "description": "Fuse keyword and semantic results; may call the configured embedding endpoint",
+                },
+                "after": {"type": "string", "description": "ISO date lower bound for raw sources"},
+                "before": {"type": "string", "description": "ISO date upper bound for raw sources"},
+                "source": {"type": "string", "description": "Raw adapter name, such as chatgpt"},
+                "kind": {"type": "string", "enum": ["raw", "wiki", "note"]},
             },
             "required": ["query"],
         },
@@ -105,7 +114,19 @@ def call_tool(vault: Vault, name: str, arguments: dict[str, Any]) -> dict[str, o
         limit = int(arguments.get("limit", 5))
         if not 1 <= limit <= 20:
             raise ValueError("limit must be between 1 and 20")
-        results = vault.search(_string(arguments, "query"), limit)
+        results = vault.search(
+            _string(arguments, "query"),
+            limit,
+            hybrid=bool(arguments.get("hybrid", False)),
+            after=arguments.get("after") if isinstance(arguments.get("after"), str) else None,
+            before=arguments.get("before")
+            if isinstance(arguments.get("before"), str)
+            else None,
+            source=arguments.get("source")
+            if isinstance(arguments.get("source"), str)
+            else None,
+            kind=arguments.get("kind") if isinstance(arguments.get("kind"), str) else None,
+        )
         for result in results:
             path = PurePosixPath(result["path"])
             if path.parts[0] == "wiki":

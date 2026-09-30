@@ -17,7 +17,7 @@ When in doubt: fewer files, fewer deps, fewer concepts, shorter diff.
 3. **No `mcp` package.** Hand-roll the stdio JSON-RPC loop. See `DESIGN.md` §13.
 4. **No web framework.** stdlib `http.server`.
 5. **No frontend build step.** One HTML file, vanilla JS, inline SVG. No React, no bundler, no `node_modules`, no CDN `<script>` tags for libraries — inline what you need.
-6. **No graph database, no embeddings, no vector store** in v1. See `DESIGN.md` §10 and §17.
+6. **No graph database or mandatory vector stack.** Post-v1 embeddings remain optional, zero-dependency, and disposable; FTS5 must keep working alone. See `DESIGN.md` §10 and §17.
 7. **No agent framework.** The build pass is a `for` loop.
 8. **Markdown is authoritative; SQLite is disposable.** Never store a fact only in the database. `synapse reindex` must be able to rebuild the entire index from the files.
 9. **`raw/` is write-once.** Never overwrite or edit an existing raw file.
