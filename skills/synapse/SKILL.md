@@ -7,7 +7,7 @@ description: Search and inspect a local Synapse knowledge vault when a request d
 
 Use the Synapse MCP tools as retrieval, not ambient context.
 
-1. Call `search` with the user's important terms.
+1. Call `search` with the user's important terms. If wording is conceptual or keyword search misses, retry once with `hybrid=true` when a semantic index is configured.
 2. Prefer one result whose `kind` is `page`, then call `read_page` with its `slug`.
 3. Use `neighbors` only when the question depends on a relationship; open only relevant neighbours.
 4. Use `read_source` with a result's `source_path` only when provenance or exact wording matters.

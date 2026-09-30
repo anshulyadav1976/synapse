@@ -48,6 +48,17 @@ Ingest is local and free: it writes Markdown and builds a disposable SQLite FTS5
 uvx --from synapse-vault synapse search "the phrase I remember" --vault ./my-brain
 ```
 
+If keyword wording starts missing obvious matches, add the optional semantic cache and fuse both rankings:
+
+```bash
+export SYNAPSE_API_KEY="..."
+uvx --from synapse-vault synapse embed --vault ./my-brain --dry-run
+uvx --from synapse-vault synapse embed --vault ./my-brain
+uvx --from synapse-vault synapse search "the idea about handling growth" --hybrid --vault ./my-brain
+```
+
+This adds no dependency or vector server. Embeddings are derived from wiki pages and approved notes, stored in the same disposable SQLite file, and never replace FTS5. Raw-history embeddings require the explicit `--include-raw` flag.
+
 To turn raw history into a linked wiki, estimate first and then build a small resumable batch:
 
 ```bash
@@ -65,11 +76,11 @@ my-brain/
 ├── raw/<source>/<YYYY-MM>/<id>.md   immutable imported history
 ├── wiki/<slug>.md                   linked, editable knowledge pages
 ├── notes/<slug>.md                  approved, append-only agent notes
-├── synapse.db                       disposable FTS5 + graph index
+├── synapse.db                       disposable search + graph indexes
 └── synapse.toml                     model and owner settings
 ```
 
-Delete `synapse.db` and `synapse reindex --vault ./my-brain` recreates it. The durable data is ordinary Markdown that works with git, Obsidian, `grep`, and any editor.
+Delete `synapse.db` and `synapse reindex --vault ./my-brain` recreates FTS and the graph; run `synapse embed` again only if you use optional semantic search. The durable data is ordinary Markdown that works with git, Obsidian, `grep`, and any editor.
 
 ## How it works
 
@@ -77,11 +88,11 @@ Delete `synapse.db` and `synapse reindex --vault ./my-brain` recreates it. The d
 2. Ingest writes immutable raw Markdown and indexes it with SQLite FTS5—no model call.
 3. Build compresses one item and asks any OpenAI-compatible model for complete wiki pages.
 4. `[[wikilinks]]` become edges; a recursive SQLite CTE handles multi-hop traversal.
-5. The one-file dashboard, CLI, Python API, REST API, and MCP server all use the same vault.
+5. Optional embeddings add semantic recall; the one-file dashboard, CLI, Python API, REST API, and MCP server all use the same vault.
 
 ## Model providers
 
-Synapse uses one standard-library HTTP POST to `/chat/completions`; there is no provider SDK.
+Synapse uses standard-library HTTP POSTs to `/chat/completions` and, only when requested, `/embeddings`; there is no provider SDK.
 
 | Provider | Base URL | Status |
 |---|---|---|
@@ -119,19 +130,13 @@ uvx --from synapse-vault synapse approve-note <id> --vault ./my-brain
 
 Imported history remains write-once. Credentials, browser sessions, workspace state, and routine chat turns do not belong in notes; merge and deletion remain human-only.
 
-Python works too:
-
-```python
-from synapse import Vault
-
-matches = Vault("./my-brain").search("launch decision")
-```
+Python works too: `from synapse import Vault; Vault("./my-brain").search("launch decision")`.
 
 ## Not built, on purpose
 
 | Not built | Why |
 |---|---|
-| Embeddings | FTS5 is free, inspectable, and needs no migration or per-item API call. Add vectors only after measured recall failures. |
+| Bundled embedding model or vector server | Hybrid search calls the endpoint you choose and keeps its disposable cache in SQLite. |
 | Graph database | Personal graphs fit in SQLite; a ten-line recursive CTE handles traversal. |
 | Auth or cloud sync | Synapse is single-user and binds only to `127.0.0.1`. Your files stay yours. |
 | Agent framework | The processing pipeline is a resumable loop, not an application graph. |
@@ -146,4 +151,4 @@ Imported text is untrusted data. Synapse never executes it, and agents are instr
 - Read how the [SQLite graph](https://github.com/anshulyadav1976/synapse/blob/main/docs/graph.md) works.
 - See [CONTRIBUTING.md](https://github.com/anshulyadav1976/synapse/blob/main/CONTRIBUTING.md) for the test and pull-request workflow.
 
-Synapse began as the winner of the LangGraph hackathon in London. This is the local-first rewrite that deleted SurrealDB, FastAPI, React, LangGraph, and embeddings so people can actually run it.
+Synapse began as the winner of the LangGraph hackathon in London. This is the local-first rewrite that deleted SurrealDB, FastAPI, React, LangGraph, and mandatory embeddings so people can actually run it.

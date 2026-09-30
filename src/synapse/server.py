@@ -33,7 +33,15 @@ class Dashboard:
         if path == "/api/status":
             return self.vault.status()
         if path == "/api/search":
-            return self.vault.search(_one(query, "q"), int(_one(query, "limit", "20")))
+            return self.vault.search(
+                _one(query, "q"),
+                int(_one(query, "limit", "20")),
+                hybrid=_one(query, "hybrid") == "1",
+                after=_one(query, "after") or None,
+                before=_one(query, "before") or None,
+                source=_one(query, "source") or None,
+                kind=_one(query, "kind") or None,
+            )
         if path == "/api/graph":
             return graph_json(self.vault)
         if path == "/api/page":
@@ -107,7 +115,7 @@ class Dashboard:
         if not config.api_key and not config.base_url.startswith(
             ("http://localhost", "http://127.0.0.1")
         ):
-            raise ValueError("Configure an API key in synapse.toml before building")
+            raise ValueError("Set SYNAPSE_API_KEY or add api_key to synapse.toml before building")
 
         def work(job_id: str) -> dict[str, object]:
             client = OpenAICompatible(config.base_url, config.api_key, config.model)

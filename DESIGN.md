@@ -324,6 +324,10 @@ Each of these is a "no" with a reason, and the reasons belong in the README's ow
 - **PDF/DOCX adapters.** See §15.
 - **Streaming responses.** The build pass is batch; the dashboard can wait.
 
+### Post-v1 measured change: optional hybrid retrieval
+
+Real-vault paraphrase misses triggered the reconsideration rule above. FTS5 remains the free default. `synapse embed` may derive a page-level/chunked cache through an OpenAI-compatible `/embeddings` endpoint, store normalized vectors in disposable SQLite, and fuse semantic and lexical ranks. It must add no runtime dependency, bundled model, vector server, or automatic raw-history upload. Date/source/kind filters remain structured SQLite constraints rather than embedding guesses.
+
 ---
 
 ## 18. Naming and repo strategy

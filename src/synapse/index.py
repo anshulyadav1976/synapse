@@ -19,6 +19,7 @@ BUILD_RECEIPT = re.compile(r"^\s*-\s*\[([^]]+)\]\s+(raw/\S+\.md)\s*$")
 
 def index_document(connection: sqlite3.Connection, path: str, title: str, body: str) -> None:
     connection.execute("DELETE FROM docs_fts WHERE path = ?", (path,))
+    connection.execute("DELETE FROM embeddings WHERE path = ?", (path,))
     connection.execute(
         "INSERT INTO docs_fts(path, title, body) VALUES (?, ?, ?)", (path, title, body)
     )
@@ -70,6 +71,7 @@ def reindex(vault_path: Path) -> tuple[int, int, int]:
         connection.execute("DELETE FROM items")
         connection.execute("DELETE FROM docs_fts")
         connection.execute("DELETE FROM links")
+        connection.execute("DELETE FROM embeddings")
         for path in sorted((vault_path / "raw").rglob("*.md")):
             item, body = parse(path)
             relative = path.relative_to(vault_path).as_posix()
@@ -176,7 +178,16 @@ def _adjusted_score(
     return relevance
 
 
-def search(database: Path, query: str, limit: int = 10) -> list[dict[str, str]]:
+def _lexical_search(
+    database: Path,
+    query: str,
+    limit: int,
+    *,
+    after: str | None,
+    before: str | None,
+    source: str | None,
+    kind: str | None,
+) -> list[dict[str, str]]:
     """Stemmed full-text search.
 
     Documents containing every meaningful word rank first; if that leaves room, documents
@@ -188,19 +199,34 @@ def search(database: Path, query: str, limit: int = 10) -> list[dict[str, str]]:
     if not strict or limit < 1:
         return []
     pool = max(limit * 5, 50)
-    sql = """
+    conditions = ["docs_fts MATCH ?"]
+    filters: list[object] = []
+    if after:
+        conditions.append("items.ts >= ?")
+        filters.append(after)
+    if before:
+        conditions.append("items.ts < ?")
+        filters.append(before)
+    if source:
+        conditions.append("items.source = ?")
+        filters.append(source)
+    if kind:
+        prefix = {"raw": "raw/%", "wiki": "wiki/%", "note": "notes/%"}[kind]
+        conditions.append("docs_fts.path LIKE ?")
+        filters.append(prefix)
+    sql = f"""
         SELECT docs_fts.path AS path, docs_fts.title AS title,
                snippet(docs_fts, 2, '[', ']', ' … ', 20) AS snippet,
                bm25(docs_fts, 0.0, 3.0, 1.0) AS score, items.ts AS ts
         FROM docs_fts LEFT JOIN items ON items.path = docs_fts.path
-        WHERE docs_fts MATCH ?
+        WHERE {' AND '.join(conditions)}
         ORDER BY score
         LIMIT ?
     """
     with connect(database) as connection:
-        tiers = [connection.execute(sql, (strict, pool)).fetchall()]
+        tiers = [connection.execute(sql, (strict, *filters, pool)).fetchall()]
         if len(tiers[0]) < limit and loose != strict:
-            tiers.append(connection.execute(sql, (loose, pool)).fetchall())
+            tiers.append(connection.execute(sql, (loose, *filters, pool)).fetchall())
     results: list[dict[str, str]] = []
     seen: set[str] = set()
     for rows in tiers:
@@ -225,3 +251,59 @@ def search(database: Path, query: str, limit: int = 10) -> list[dict[str, str]]:
             if len(results) >= limit:
                 return results
     return results
+
+
+def search(
+    database: Path,
+    query: str,
+    limit: int = 10,
+    *,
+    query_vector: list[float] | None = None,
+    embedding_model: str | None = None,
+    after: str | None = None,
+    before: str | None = None,
+    source: str | None = None,
+    kind: str | None = None,
+) -> list[dict[str, str]]:
+    """Use lexical search alone, or fuse it with the optional semantic index."""
+    pool = max(limit * 5, 50)
+    lexical = _lexical_search(
+        database,
+        query,
+        pool,
+        after=after,
+        before=before,
+        source=source,
+        kind=kind,
+    )
+    if query_vector is None or embedding_model is None:
+        return lexical[:limit]
+
+    from .semantic import semantic_search
+
+    semantic = semantic_search(
+        database,
+        query_vector,
+        embedding_model,
+        pool,
+        after=after,
+        before=before,
+        source=source,
+        kind=kind,
+    )
+    scores: dict[str, float] = {}
+    results: dict[str, dict[str, str]] = {}
+    matches: dict[str, set[str]] = {}
+    for label, rows in (("keyword", lexical), ("semantic", semantic)):
+        for rank, result in enumerate(rows, start=1):
+            path = result["path"]
+            scores[path] = scores.get(path, 0.0) + 1 / (60 + rank)
+            results.setdefault(path, result)
+            matches.setdefault(path, set()).add(label)
+    ranked = sorted(scores, key=lambda path: (-scores[path], path))[:limit]
+    output: list[dict[str, str]] = []
+    for path in ranked:
+        result = dict(results[path])
+        result["match"] = "hybrid" if len(matches[path]) == 2 else next(iter(matches[path]))
+        output.append(result)
+    return output
