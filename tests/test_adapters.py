@@ -9,6 +9,7 @@ from synapse.models import Item, Turn
 
 FIXTURES = Path(__file__).parent / "fixtures"
 CHATGPT = FIXTURES / "chatgpt"
+CLAUDE = FIXTURES / "claude"
 
 
 def assert_chatgpt_item(path, format_name=None):
@@ -51,6 +52,45 @@ def test_chatgpt_html_fallback(tmp_path):
     assert_chatgpt_item(html)
 
 
+def assert_claude_items(path):
+    items = list(read(path))
+    assert len(items) == 2
+    first, second = items
+    assert first.id == "synthetic-claude-001"
+    assert first.source == "claude"
+    assert first.title == "Sketching a bike shed rota"
+    assert first.ts == "2026-03-01T09:00:00+00:00"
+    assert [turn.speaker for turn in first.turns] == ["me", "claude"]
+    assert first.turns[1].text == "Rotate alphabetically: Ada takes March."
+    assert second.title == "Untitled conversation"
+    assert [turn.text for turn in second.turns][-1] == "Flat replies still come through."
+
+
+def test_claude_file_folder_and_zip(tmp_path):
+    assert detect(CLAUDE) == "claude"
+    assert detect(CLAUDE / "conversations.json") == "claude"
+    assert_claude_items(CLAUDE)
+    assert_claude_items(CLAUDE / "conversations.json")
+    archive_path = tmp_path / "data-2026-04-03.zip"
+    with ZipFile(archive_path, "w") as archive:
+        archive.write(CLAUDE / "conversations.json", "conversations.json")
+        archive.writestr("users.json", "[]")
+    assert detect(archive_path) == "claude"
+    assert_claude_items(archive_path)
+
+
+def test_legacy_chatgpt_conversations_json_is_not_claude(tmp_path):
+    legacy = tmp_path / "conversations.json"
+    conversations = json.loads((CHATGPT / "conversations-000.json").read_text())
+    conversations[0]["title"] = "chat_messages"
+    legacy.write_text(json.dumps(conversations))
+    assert detect(legacy) == "chatgpt"
+    archive_path = tmp_path / "export.zip"
+    with ZipFile(archive_path, "w") as archive:
+        archive.write(legacy, "conversations.json")
+    assert detect(archive_path) == "chatgpt"
+
+
 def test_file_dir_and_universal_fallback(tmp_path):
     note = tmp_path / "note.md"
     note.write_text("hello searchable world")
@@ -79,4 +119,3 @@ def test_heading_chunking_and_trivia_count():
         turns=[Turn("me", "12345"), Turn("assistant", "x" * 100)],
     )
     assert owner_chars(conversation) == 5
-
