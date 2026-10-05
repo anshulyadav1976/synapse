@@ -384,3 +384,24 @@ Twine package check: wheel passed, sdist passed
 Fresh 0.4.1 wheel `synapse --help`: passed
 Runtime dependencies added: 0
 ```
+
+### v0.4.2 MCP tool-definition clarity
+
+- [x] Explain selection rules, output shapes, failure behavior, and parameter semantics for all seven MCP tools
+- [x] Add accurate read-only/network/write/idempotency annotations without changing text response formats
+- [x] Test metadata coverage, catalog/neighbor result shapes, and package/server version agreement
+- [x] Update MCP documentation; retain zero runtime dependencies and the human approval gate
+
+**Local checkpoint:** synthetic verification on 2026-10-05; no personal data or paid endpoint used.
+
+```text
+Tests: 44 passed in 0.41s
+Ruff: all checks passed
+git diff --check: passed
+Twine package check: wheel passed, sdist passed
+Runtime dependencies added: 0
+```
+
+Glama's v0.4.1 baseline was 3.6/5 averaged across seven tool definitions, with
+`neighbors` at 2.7/5. A higher v0.4.2 score is not claimed until the registry
+build, discovery, and fresh evaluation have completed.

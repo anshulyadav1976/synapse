@@ -1,6 +1,6 @@
 import json
 
-from synapse import Vault
+from synapse import Vault, __version__
 from synapse.mcp import TOOLS, call_tool, dispatch
 from synapse.server import demo_vault
 
@@ -19,6 +19,7 @@ def test_initialize_and_tools_list(tmp_path):
     )
     assert initialized["result"]["protocolVersion"] == "2025-06-18"
     assert initialized["result"]["capabilities"] == {"tools": {"listChanged": False}}
+    assert initialized["result"]["serverInfo"]["version"] == __version__
     listed = dispatch(vault, {"jsonrpc": "2.0", "id": 2, "method": "tools/list"})
     assert listed["result"]["tools"] == TOOLS
     assert {tool["name"] for tool in TOOLS} == {
@@ -30,6 +31,39 @@ def test_initialize_and_tools_list(tmp_path):
         "read_source",
         "propose_note",
     }
+
+
+def test_tool_metadata_describes_parameters_and_side_effects():
+    for tool in TOOLS:
+        assert all(field.get("description") for field in tool["inputSchema"]["properties"].values())
+        annotations = tool["annotations"]
+        assert annotations["readOnlyHint"] == (tool["name"] != "propose_note")
+        assert annotations["openWorldHint"] == (tool["name"] == "search")
+        # Output schemas require structuredContent; these tools deliberately retain text.
+        assert "outputSchema" not in tool
+    proposal = next(tool for tool in TOOLS if tool["name"] == "propose_note")
+    assert proposal["annotations"]["idempotentHint"] is True
+    assert proposal["annotations"]["destructiveHint"] is False
+
+
+def test_catalog_and_neighbors_match_documented_shapes():
+    vault, temporary = demo_vault()
+    try:
+        pages = json.loads(call_tool(vault, "list_pages", {})["content"][0]["text"])
+        assert len(pages) == 20
+        assert pages == sorted(pages, key=lambda page: page["slug"])
+        assert all(set(page) == {"slug", "title"} for page in pages)
+        for page in pages:
+            links = json.loads(
+                call_tool(vault, "neighbors", {"slug": page["slug"]})["content"][0]["text"]
+            )
+            assert links == sorted(links, key=lambda link: link["slug"])
+            assert all(set(link) == {"slug", "direction", "phrase"} for link in links)
+            assert all(link["direction"] in {"in", "out"} for link in links)
+        missing = call_tool(vault, "neighbors", {"slug": "nonexistent-synthetic-page"})
+        assert json.loads(missing["content"][0]["text"]) == []
+    finally:
+        temporary.cleanup()
 
 
 def test_demo_tool_sequence_reads_one_page_and_source():
