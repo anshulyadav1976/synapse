@@ -405,3 +405,20 @@ Runtime dependencies added: 0
 Glama's v0.4.1 baseline was 3.6/5 averaged across seven tool definitions, with
 `neighbors` at 2.7/5. A higher v0.4.2 score is not claimed until the registry
 build, discovery, and fresh evaluation have completed.
+
+**Publication checkpoint (2026-10-05):** GitHub CI passed on Python 3.11, 3.12,
+and 3.13 for commit `4a18d80`; the v0.4.2 publishing workflow succeeded.
+An isolated install from public PyPI returned:
+
+```text
+Published version: 0.4.2
+Runtime requirements: []
+MCP tools: 7
+Synthetic demo search hits: 5
+```
+
+Glama auto-published 0.4.2 from a successful 9.4-second build of `4a18d80`.
+Its logs confirm server version 0.4.2 and introspection of all seven updated
+tools. The build uses a newly initialized empty vault, with no API key or
+personal data. All seven definitions are queued for free TDQS reevaluation;
+no paid Boost or hosting was enabled.
